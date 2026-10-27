@@ -210,6 +210,20 @@ def test_editable_sections_are_source_bound(resume_client: TestClient) -> None:
     ]
     assert result["approved_at"]
     assert len(client.get(f"/api/v1/resumes/{resume['id']}/versions").json()) == 1
+    reversed_sections = client.post(
+        url,
+        json={
+            **payload,
+            "sections": list(reversed(payload["sections"])),
+        },
+    ).json()
+    assert [section["heading"] for section in reversed_sections["content"]["sections"]] == [
+        "Projects",
+        "Experience",
+    ]
+    assert [bullet["evidence_id"] for bullet in reversed_sections["bullets"]] == [b["id"], a["id"]]
+    assert [bullet["position"] for bullet in reversed_sections["bullets"]] == [0, 1]
+    assert client.get(f"/api/v1/resume-versions/{result['id']}").json() == result
 
 
 def test_validation_reports_all_issues_without_saving(resume_client: TestClient) -> None:
