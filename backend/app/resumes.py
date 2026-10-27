@@ -31,23 +31,26 @@ router = APIRouter(prefix="/api/v1", tags=["resumes"])
 
 def evidence_snapshot(item: EvidenceItem) -> dict[str, object]:
     """Capture source context at drafting time; later library changes cannot affect it."""
+    experience = item.experience or (item.project.experience if item.project else None)
     return {
         "claim": item.claim,
         "source_note": item.source_note,
         "verified_at": item.verified_at.isoformat() if item.verified_at else None,
         "experience": {
-            "organization": item.experience.organization,
-            "title": item.experience.title,
-            "start_date": item.experience.start_date.isoformat()
-            if item.experience.start_date
-            else None,
-            "end_date": item.experience.end_date.isoformat() if item.experience.end_date else None,
+            "organization": experience.organization,
+            "title": experience.title,
+            "start_date": experience.start_date.isoformat() if experience.start_date else None,
+            "end_date": experience.end_date.isoformat() if experience.end_date else None,
+            "location": experience.location,
         }
-        if item.experience
+        if experience
         else None,
         "project": {
             "name": item.project.name,
             "summary": item.project.summary,
+            "start_date": item.project.start_date.isoformat() if item.project.start_date else None,
+            "end_date": item.project.end_date.isoformat() if item.project.end_date else None,
+            "url": item.project.url,
         }
         if item.project
         else None,

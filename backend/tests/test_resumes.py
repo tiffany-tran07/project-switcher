@@ -33,6 +33,8 @@ def test_verified_only_immutable_snapshot(resume_client: TestClient) -> None:
         json={
             "organization": "Previous Employer",
             "title": "Developer",
+            "start_date": "2020-01-01",
+            "end_date": "2023-06-30",
         },
     ).json()
     evidence = client.post(
@@ -43,6 +45,7 @@ def test_verified_only_immutable_snapshot(resume_client: TestClient) -> None:
             "source_note": "Design notes",
         },
     ).json()
+    client.put("/api/v1/profile", json={"name": "Saved Name", "email": "saved@example.test"})
     path = f"/api/v1/resumes/{resume['id']}/draft"
     assert client.post(path, json={"evidence_ids": [evidence["id"]]}).status_code == 422
     assert (
@@ -55,6 +58,10 @@ def test_verified_only_immutable_snapshot(resume_client: TestClient) -> None:
     version = draft.json()
     assert version["version_number"] == 1
     assert version["approved_at"] is not None
+    assert version["content"]["profile"]["name"] == "Saved Name"
+    assert version["bullets"][0]["evidence_snapshot"]["experience"]["start_date"] == "2020-01-01"
+    assert version["bullets"][0]["evidence_snapshot"]["experience"]["end_date"] == "2023-06-30"
+    client.put("/api/v1/profile", json={"name": "Changed Name", "email": "changed@example.test"})
     assert version["bullets"][0]["text"] == evidence["claim"]
     assert version["bullets"][0]["evidence_id"] == evidence["id"]
     assert (
@@ -101,7 +108,14 @@ def test_editable_sections_are_source_bound(resume_client: TestClient) -> None:
         },
     ).json()
     project = client.post(
-        "/api/v1/projects", json={"name": "Pipeline", "experience_id": experience["id"]}
+        "/api/v1/projects",
+        json={
+            "name": "Pipeline",
+            "experience_id": experience["id"],
+            "start_date": "2022-03-01",
+            "end_date": "2022-06-30",
+            "url": "https://example.test/project",
+        },
     ).json()
     a = client.post(
         "/api/v1/evidence",
@@ -209,6 +223,12 @@ def test_editable_sections_are_source_bound(resume_client: TestClient) -> None:
         "Built a data pipeline",
     ]
     assert result["approved_at"]
+    project_snapshot = result["bullets"][1]["evidence_snapshot"]
+    assert project_snapshot["experience"]["organization"] == "Example"
+    assert project_snapshot["experience"]["title"] == "Engineer"
+    assert project_snapshot["project"]["start_date"] == "2022-03-01"
+    assert project_snapshot["project"]["end_date"] == "2022-06-30"
+    assert project_snapshot["project"]["url"] == "https://example.test/project"
     assert len(client.get(f"/api/v1/resumes/{resume['id']}/versions").json()) == 1
     reversed_sections = client.post(
         url,
@@ -223,6 +243,8 @@ def test_editable_sections_are_source_bound(resume_client: TestClient) -> None:
     ]
     assert [bullet["evidence_id"] for bullet in reversed_sections["bullets"]] == [b["id"], a["id"]]
     assert [bullet["position"] for bullet in reversed_sections["bullets"]] == [0, 1]
+    client.patch(f"/api/v1/projects/{project['id']}", json={"name": "Renamed pipeline"})
+    client.patch(f"/api/v1/experiences/{experience['id']}", json={"title": "Changed title"})
     assert client.get(f"/api/v1/resume-versions/{result['id']}").json() == result
 
 
