@@ -1,6 +1,7 @@
 """Immutable, source-backed resume snapshots with conservative wording edits."""
 
 import re
+import unicodedata
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -68,31 +69,43 @@ def evidence_snapshot(item: EvidenceItem) -> dict[str, object]:
     }
 
 
-# Only grammatical filler may be removed. New words, reordered actions, changed
-# metrics, or deleted negations must be reviewed in evidence instead of here.
-FILLER = {"i", "a", "an", "the", "was", "were", "have", "has", "had"}
-WORD = re.compile(r"[^\W_]+(?:[.#][^\W_]+|[+#]+)*", re.IGNORECASE)
-NUMERIC = re.compile(r"\$?\d+(?:[.,/\-–]\d+)*(?:\s*%)?")
+# Keep signs, comparators, currency, technical punctuation, and ownership words.
+# We do not have a semantic proof that deleting arbitrary "filler" is harmless.
+WORDING_TOKEN = re.compile(
+    r"[+\-−]?\d+(?:[.,/\-–]\d+)*(?:\s*[%‰‱])?"
+    r"|\.?[^\W_]+(?:[.#/_\-][^\W_]+|[+#]+)*"
+    r"|[^\s]",
+    re.IGNORECASE,
+)
+FIRST_PERSON_AUXILIARIES = {"am", "was", "were", "have", "has", "had", "been"}
+
+
+def wording_tokens(value: str) -> list[str]:
+    value = unicodedata.normalize("NFC", value).strip()
+    # A single sentence-ending full stop is optional, not a technology's leading dot.
+    if value.endswith(".") and not value.endswith(".."):
+        value = value[:-1]
+    return WORDING_TOKEN.findall(value.casefold())
 
 
 def safe_wording(claim: str, proposed: str) -> bool:
-    source = WORD.findall(claim.casefold())
-    target = WORD.findall(proposed.casefold())
-    if not target or not source or not proposed.strip():
+    source = wording_tokens(claim)
+    target = wording_tokens(proposed)
+    if not source or not target:
         return False
-    if [word for word in source if word not in FILLER] != [
-        word for word in target if word not in FILLER
-    ]:
+    if source == target:
+        return True
+    if source[0] != "i":
         return False
-    if source.count("not") != target.count("not") or source.count("no") != target.count("no"):
-        return False
-    if NUMERIC.findall(claim) != NUMERIC.findall(proposed):
-        return False
-    if any(claim.count(symbol) != proposed.count(symbol) for symbol in ("%", "$")):
-        return False
-    # Even filler cannot be inserted to invent actors or change tense.
-    cursor = iter(source)
-    return all(any(word == original for original in cursor) for word in target)
+    # Resume style may omit a leading "I" (and its leading auxiliaries), but
+    # cannot remove internal articles, technology names, or qualifications.
+    prefix = 1
+    while True:
+        if source[prefix:] == target:
+            return True
+        if prefix >= len(source) or source[prefix] not in FIRST_PERSON_AUXILIARIES:
+            return False
+        prefix += 1
 
 
 def usable(item: EvidenceItem | None) -> bool:

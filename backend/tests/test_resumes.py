@@ -340,6 +340,99 @@ def test_wording_preserves_numbers_named_tools_and_negations() -> None:
     assert not safe_wording("I led the team", "The team led I")
 
 
+@pytest.mark.parametrize(
+    ("claim", "proposed"),
+    [
+        ("Observed a -30% change", "Observed a 30% change"),
+        ("Observed a −30% change", "Observed a +30% change"),
+        ("Kept latency <30 ms", "Kept latency >30 ms"),
+        ("Kept latency ≤30 ms", "Kept latency 30 ms"),
+        ("Saved €30 per request", "Saved £30 per request"),
+        ("Saved ¥30 per request", "Saved 30 per request"),
+        ("Saved 30% and spent 20", "Saved 30 and spent 20%"),
+        ("Handled 5–10 requests", "Handled 5 requests"),
+        ("Built .NET services", "Built NET services"),
+        ("Used A/B experiments", "Used B experiments"),
+        ("Used Tool A", "Used Tool"),
+        ("Used WAS services", "Used services"),
+        ("Supported a lead", "Supported lead"),
+        ("I worked with the lead", "I worked the lead"),
+        ("Did not own the service", "Did own the service"),
+        ("Maintained 99.9% uptime", "Maintained 999% uptime"),
+        ("Improved (estimated) costs", "Improved estimated costs"),
+    ],
+)
+def test_wording_rejects_semantic_symbol_and_scope_changes(claim: str, proposed: str) -> None:
+    assert not safe_wording(claim, proposed)
+
+
+@pytest.mark.parametrize(
+    ("claim", "proposed"),
+    [
+        ("I built Python services", "Built Python services."),
+        ("I have built Python services.", "Built Python services"),
+        ("I was maintaining .NET services", "Maintaining .NET services"),
+        ("I had been maintaining .NET services", "Maintaining .NET services"),
+        ("I measured -30% and €20", "Measured -30% and €20"),
+        ("I kept latency <30 ms", "Kept latency <30 ms"),
+        ("Built résumé tools", "Built résumé tools."),
+        ("Built Python services", "Built   Python services."),
+    ],
+)
+def test_wording_allows_only_safe_style_changes(claim: str, proposed: str) -> None:
+    assert safe_wording(claim, proposed)
+
+
+def test_symbol_changes_block_drafting_and_wording_suggestions(resume_client: TestClient) -> None:
+    client = resume_client
+    experience = client.post(
+        "/api/v1/experiences",
+        json={
+            "organization": "Example",
+            "title": "Engineer",
+        },
+    ).json()
+    item = client.post(
+        "/api/v1/evidence",
+        json={
+            "experience_id": experience["id"],
+            "claim": "I observed -30% change at €20 cost",
+            "source_note": "Measured results",
+        },
+    ).json()
+    client.patch(f"/api/v1/evidence/{item['id']}", json={"state": "verified"})
+    bad = "Observed 30% change at £20 cost"
+    client.post(f"/api/v1/evidence/{item['id']}/bullets", json={"text": bad, "approved": True})
+    assert bad not in client.get(f"/api/v1/evidence/{item['id']}/resume-wordings").json()
+    job = client.post(
+        "/api/v1/jobs",
+        json={
+            "title": "Engineer",
+            "raw_description": "Role requiring Python services experience.",
+        },
+    ).json()
+    resume = client.post("/api/v1/resumes", json={"job_id": job["id"], "name": "Review"}).json()
+    base = f"/api/v1/resumes/{resume['id']}"
+    payload = {
+        "sections": [
+            {
+                "heading": "Experience",
+                "bullets": [
+                    {"evidence_id": item["id"], "text": bad},
+                ],
+            }
+        ],
+        "approve": True,
+    }
+    checked = client.post(f"{base}/validate", json=payload).json()
+    assert checked["valid"] is False
+    assert checked["issues"][0]["code"] == "unsafe_wording"
+    assert client.post(f"{base}/draft", json=payload).status_code == 422
+    assert client.get(f"{base}/versions").json() == []
+    payload["sections"][0]["bullets"][0]["text"] = "Observed -30% change at €20 cost."
+    assert client.post(f"{base}/draft", json=payload).status_code == 201
+
+
 def test_database_rejects_snapshot_mutations(resume_client: TestClient) -> None:
     client = resume_client
     job = client.post(

@@ -257,13 +257,20 @@ def test_invalid_restore_never_creates_destination(
     assert not destination.exists()
 
 
-def test_restore_rejects_forged_snapshot_wording(backup_archive: Path) -> None:
+@pytest.mark.parametrize(
+    "forged",
+    [
+        "Invented Kubernetes achievement",
+        "Improved Python reports by -30% with Postgres",
+    ],
+)
+def test_restore_rejects_forged_snapshot_wording(backup_archive: Path, forged: str) -> None:
     def forge(database: sqlite3.Connection) -> None:
         trigger = database.execute(
             "SELECT sql FROM sqlite_master WHERE name = 'resume_bullets_immutable_update'"
         ).fetchone()[0]
         database.execute("DROP TRIGGER resume_bullets_immutable_update")
-        database.execute("UPDATE resume_bullets SET text = 'Invented Kubernetes achievement'")
+        database.execute("UPDATE resume_bullets SET text = ?", (forged,))
         database.execute(trigger)
 
     modified = modified_database(backup_archive, forge)
