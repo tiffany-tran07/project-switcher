@@ -65,6 +65,19 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   return response.json() as Promise<T>
 }
 
+export async function downloadBackup(): Promise<Blob> {
+  const response = await fetch(`${API_ROOT}/backup/export`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ acknowledge_personal_data: true }),
+  })
+  if (!response.ok) {
+    let body: unknown
+    try { body = await response.json() } catch { body = null }
+    throw new Error(errorMessage(body))
+  }
+  return response.blob()
+}
+
 export function save<T>(path: string, method: 'POST' | 'PUT' | 'PATCH', data: unknown): Promise<T> {
   return api<T>(path, { method, body: JSON.stringify(data) })
 }
