@@ -306,6 +306,8 @@ def draft_resume(
     session.add(version)
     session.flush()  # Write all bullets before sealing the immutable snapshot.
     version.sealed = True
+    resume.updated_at = utc_now()
+    resume.status = "approved" if data.approve else "draft"
     session.commit()
     session.refresh(version)
     return version

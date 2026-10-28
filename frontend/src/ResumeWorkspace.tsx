@@ -6,10 +6,10 @@ import { api, save, type DraftValidation, type Evidence, type Job, type Project,
 
 import { buildSections, defaultHeadingOrder, moveWithinSection, type Heading } from './resumeDraft'
 
-export default function ResumeWorkspace({ evidence, projects, onEvidenceSelect }: { evidence: Evidence[]; projects: Project[]; onEvidenceSelect: (id: string) => void }) {
+export default function ResumeWorkspace({ evidence, projects, onEvidenceSelect, initialResumeId }: { evidence: Evidence[]; projects: Project[]; onEvidenceSelect: (id: string) => void; initialResumeId?: string }) {
   const [jobs, setJobs] = useState<Job[]>([])
   const [resumes, setResumes] = useState<Resume[]>([])
-  const [resumeId, setResumeId] = useState('')
+  const [resumeId, setResumeId] = useState(initialResumeId ?? '')
   const [jobId, setJobId] = useState('')
   const [name, setName] = useState('')
   const [selected, setSelected] = useState<string[]>([])
@@ -28,10 +28,18 @@ export default function ResumeWorkspace({ evidence, projects, onEvidenceSelect }
   const report = validation?.key === validationKey ? validation.report : null
 
   useEffect(() => {
-    Promise.all([api<Job[]>('/jobs'), api<Resume[]>('/resumes')])
-      .then(([jobRows, resumeRows]) => { setJobs(jobRows); setResumes(resumeRows) })
-      .catch((cause) => setError(String(cause)))
-  }, [])
+    let active = true
+    Promise.all([
+      api<Job[]>('/jobs'), api<Resume[]>('/resumes'),
+      initialResumeId ? api<ResumeVersion[]>(`/resumes/${initialResumeId}/versions`) : Promise.resolve([] as ResumeVersion[]),
+    ])
+      .then(([jobRows, resumeRows, savedVersions]) => {
+        if (!active) return
+        setJobs(jobRows); setResumes(resumeRows); setVersions(savedVersions); setVersion(savedVersions.at(-1) ?? null)
+      })
+      .catch((cause) => { if (active) setError(String(cause)) })
+    return () => { active = false }
+  }, [initialResumeId])
 
   async function chooseResume(id: string) {
     setResumeId(id); setSelected([]); setHeadingOrder(defaultHeadingOrder); setHeadings({}); setWording({}); setSuggestions({}); setVersion(null); setError('')

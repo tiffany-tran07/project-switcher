@@ -2,9 +2,10 @@ import { useEffect, useState, type FormEvent } from 'react'
 import ResumeWorkspace from './ResumeWorkspace'
 import ApplicationsWorkspace from './ApplicationsWorkspace'
 import BackupSettings from './BackupSettings'
+import Dashboard from './Dashboard'
 import { api, API_ROOT, save, type Bullet, type Evidence, type Experience, type Job, type Metric, type Profile, type Project, type Requirement, type RequirementMatch, type SearchResult, type Skill } from './api'
 
-type Section = 'evidence' | 'experiences' | 'projects' | 'skills' | 'profile' | 'jobs' | 'resumes' | 'applications' | 'settings'
+type Section = 'evidence' | 'experiences' | 'projects' | 'skills' | 'profile' | 'jobs' | 'resumes' | 'applications' | 'settings' | 'dashboard'
 const emptyProfile: Profile = { name: '', email: '', phone: '', location: '', links: [] }
 const emptyExperience = { organization: '', title: '', start_date: '', end_date: '', location: '', description: '' }
 const emptyProject = { experience_id: '', name: '', summary: '', start_date: '', end_date: '', url: '' }
@@ -18,7 +19,7 @@ function toNullableDate(value: string) { return value || null }
 function labelForExperience(row: Experience) { return `${row.title} · ${row.organization}` }
 
 export default function App() {
-  const [section, setSection] = useState<Section>('evidence')
+  const [section, setSection] = useState<Section>('dashboard')
   const [profile, setProfile] = useState<Profile>(emptyProfile)
   const [experiences, setExperiences] = useState<Experience[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -72,7 +73,7 @@ export default function App() {
         <p>Local workspace</p>
         <nav aria-label="Main navigation">
           <span className="nav-heading">CAREER LIBRARY</span>
-          {(['evidence', 'experiences', 'projects', 'skills', 'jobs', 'resumes', 'applications', 'profile', 'settings'] as Section[]).map((item) =>
+          {(['dashboard', 'evidence', 'experiences', 'projects', 'skills', 'jobs', 'resumes', 'applications', 'profile', 'settings'] as Section[]).map((item) =>
             <button key={item} className={section === item ? 'active' : ''} onClick={() => { setSection(item); setSelectedId(null); setError(''); setNotice('') }}>{item[0].toUpperCase() + item.slice(1)}</button>,
           )}
         </nav>
@@ -80,11 +81,11 @@ export default function App() {
       </aside>
       <main>
         <header className="page-head">
-          <span className="eyebrow">{section === 'settings' ? 'SETTINGS' : section === 'applications' ? 'APPLICATION TRACKER' : section === 'jobs' ? 'JOB WORKSPACE' : section === 'resumes' ? 'RESUME WORKSPACE' : 'CAREER LIBRARY'}</span>
-          <h1>{section === 'settings' ? 'Protect your local data.' : section === 'applications' ? 'Track your applications.' : section === 'jobs' ? 'Review job requirements.' : section === 'resumes' ? 'Draft from verified evidence.' : 'Build your evidence base.'}</h1>
-          <p>{section === 'settings' ? 'Create a portable backup of your evidence, resumes, and application history.' : section === 'applications' ? 'Keep your status history and the exact resume snapshot used for each job.' : section === 'jobs' ? 'Paste a posting, review extracted requirements, and see what verified evidence supports them.' : section === 'resumes' ? 'Select, order, and snapshot supported claims for a targeted resume.' : 'Record what you did, where you did it, and the source that supports each claim.'}</p>
+          <span className="eyebrow">{section === 'dashboard' ? 'LOCAL WORKSPACE' : section === 'settings' ? 'SETTINGS' : section === 'applications' ? 'APPLICATION TRACKER' : section === 'jobs' ? 'JOB WORKSPACE' : section === 'resumes' ? 'RESUME WORKSPACE' : 'CAREER LIBRARY'}</span>
+          <h1>{section === 'dashboard' ? 'Your resume workspace.' : section === 'settings' ? 'Protect your local data.' : section === 'applications' ? 'Track your applications.' : section === 'jobs' ? 'Review job requirements.' : section === 'resumes' ? 'Draft from verified evidence.' : 'Build your evidence base.'}</h1>
+          <p>{section === 'dashboard' ? 'Pick up where you left off and see what needs attention.' : section === 'settings' ? 'Create a portable backup of your evidence, resumes, and application history.' : section === 'applications' ? 'Keep your status history and the exact resume snapshot used for each job.' : section === 'jobs' ? 'Paste a posting, review extracted requirements, and see what verified evidence supports them.' : section === 'resumes' ? 'Select, order, and snapshot supported claims for a targeted resume.' : 'Record what you did, where you did it, and the source that supports each claim.'}</p>
         </header>
-        {section === 'settings' ? <BackupSettings /> : section === 'applications' ? <ApplicationsWorkspace onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : section === 'resumes' ? <ResumeWorkspace evidence={evidence} projects={projects} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : section === 'jobs' ? <JobsWorkspace evidence={evidence} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : <>
+        {section === 'dashboard' ? <Dashboard onOpen={(destination, id) => { setSection(destination); setSelectedId(id ?? null) }} /> : section === 'settings' ? <BackupSettings /> : section === 'applications' ? <ApplicationsWorkspace initialApplicationId={selectedId ?? undefined} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : section === 'resumes' ? <ResumeWorkspace initialResumeId={selectedId ?? undefined} evidence={evidence} projects={projects} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : section === 'jobs' ? <JobsWorkspace initialJobId={selectedId ?? undefined} evidence={evidence} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : <>
         <div className="toolbar">
           <form onSubmit={search} className="search-form">
             <input aria-label="Search library" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search work, skills, and evidence" />
@@ -106,9 +107,9 @@ export default function App() {
   )
 }
 
-function JobsWorkspace({ evidence, onEvidenceSelect }: { evidence: Evidence[]; onEvidenceSelect: (id: string) => void }) {
+function JobsWorkspace({ evidence, onEvidenceSelect, initialJobId }: { evidence: Evidence[]; onEvidenceSelect: (id: string) => void; initialJobId?: string }) {
   const [jobs, setJobs] = useState<Job[]>([])
-  const [selected, setSelected] = useState<string>('')
+  const [selected, setSelected] = useState<string>(initialJobId ?? '')
   const [company, setCompany] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')

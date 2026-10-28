@@ -27,6 +27,15 @@ export type SearchResult = { type: 'experience' | 'project' | 'skill' | 'evidenc
 export type Requirement = { id?: string; text: string; supporting_span?: string | null; normalized_term: string; kind: 'skill' | 'tool' | 'responsibility' | 'experience' | 'education' | 'certification'; priority: 'required' | 'preferred' | 'unclear'; confirmed: boolean }
 export type Job = { id: string; company: string; title: string; url: string; raw_description: string; source: string; created_at: string; requirements: Requirement[] }
 export type DraftValidation = { valid: boolean; issues: { evidence_id: string; position: number; code: 'duplicate' | 'unavailable_evidence' | 'section_context' | 'unsafe_wording'; message: string }[] }
+export type DashboardData = {
+  today_utc: string
+  counts: { jobs: number; resumes: number; applications: number; ready_evidence: number; evidence_needing_review: number; follow_ups_due: number }
+  recent_jobs: { id: string; company: string; title: string }[]
+  recent_resumes: { id: string; name: string; latest_version: number | null; latest_approved_version: number | null }[]
+  recent_applications: { id: string; company: string; title: string; status: string; follow_up_date: string | null }[]
+  due_follow_ups: { id: string; company: string; title: string; status: string; follow_up_date: string | null }[]
+  evidence_needing_review: { id: string; claim: string; reason: string }[]
+}
 export type ApplicationStatus = 'planned' | 'applied' | 'interview' | 'offer' | 'rejected' | 'withdrawn'
 export type ApplicationEvent = { id: string; event_type: string; previous_status: ApplicationStatus | null; status: ApplicationStatus | null; note: string; created_at: string }
 export type Application = { id: string; job_id: string; resume_version_id: string; company: string; title: string; url: string; status: ApplicationStatus; applied_date: string | null; follow_up_date: string | null; notes: string; created_at: string; updated_at: string; events: ApplicationEvent[] }

@@ -32,6 +32,10 @@ npm run dev
 
 Open <http://127.0.0.1:5173>. The API is at <http://127.0.0.1:8000/health>; it returns `{"status":"ok"}` after migration. The local database and future attachments/exports live under `data/`, which Git ignores. Set `DATA_DIR` in `.env` to an absolute path to move them. If you set `DATABASE_URL`, use a SQLite URL and keep it inside your chosen local data directory.
 
+## Dashboard
+
+The app opens with counts and recent jobs, resumes, and applications, plus evidence needing review and follow-ups due on or before today's UTC date. Rejected and withdrawn applications are excluded from due reminders. A verified evidence record whose source context has been archived is not counted as ready for drafting. Each list shows at most five records while totals include all non-archived records. Select a row to open that specific record; the dashboard never sends follow-up messages automatically.
+
 ## Career library
 
 Use the sidebar to add experiences and projects, then create skills with optional aliases. Add one evidence item for each claim, link it to an experience or project, and record where you can verify it. Metrics have their own source notes. Save the item before clicking **Verify**. Editing a claim, its context, a linked skill, or a metric returns it to draft and clears approval on its bullet variants.

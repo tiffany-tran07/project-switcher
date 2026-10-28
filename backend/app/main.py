@@ -10,6 +10,7 @@ from app.applications import router as applications_router
 from app.ats import router as ats_router
 from app.backups import router as backups_router
 from app.config import settings
+from app.dashboard import router as dashboard_router
 from app.db import engine
 from app.exports import router as exports_router
 from app.jobs import router as jobs_router
@@ -37,6 +38,7 @@ app.include_router(exports_router)
 app.include_router(ats_router)
 app.include_router(applications_router)
 app.include_router(backups_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/health")

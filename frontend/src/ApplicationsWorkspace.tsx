@@ -7,10 +7,10 @@ import ResumeExports from './ResumeExports'
 const statuses: ApplicationStatus[] = ['planned', 'applied', 'interview', 'offer', 'rejected', 'withdrawn']
 type VersionChoice = { id: string; jobId: string; label: string }
 
-export default function ApplicationsWorkspace({ onEvidenceSelect }: { onEvidenceSelect: (id: string) => void }) {
+export default function ApplicationsWorkspace({ onEvidenceSelect, initialApplicationId }: { onEvidenceSelect: (id: string) => void; initialApplicationId?: string }) {
   const [rows, setRows] = useState<Application[]>([])
   const [choices, setChoices] = useState<VersionChoice[]>([])
-  const [selected, setSelected] = useState('')
+  const [selected, setSelected] = useState(initialApplicationId ?? '')
   const [versionId, setVersionId] = useState('')
   const [filter, setFilter] = useState('')
   const [error, setError] = useState('')
