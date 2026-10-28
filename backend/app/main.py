@@ -15,6 +15,7 @@ from app.db import engine
 from app.exports import router as exports_router
 from app.jobs import router as jobs_router
 from app.library import router as library_router
+from app.resume_intake import router as resume_intake_router
 from app.resumes import router as resumes_router
 
 
@@ -39,6 +40,7 @@ app.include_router(ats_router)
 app.include_router(applications_router)
 app.include_router(backups_router)
 app.include_router(dashboard_router)
+app.include_router(resume_intake_router)
 
 
 @app.get("/health")

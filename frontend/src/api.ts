@@ -74,6 +74,17 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   return response.json() as Promise<T>
 }
 
+export type ResumeIntakePreview = { filename: string; format: string; text: string; warnings: string[] }
+
+export async function previewResume(file: File, signal?: AbortSignal): Promise<ResumeIntakePreview> {
+  if (!/\.(docx|txt)$/i.test(file.name)) throw new Error('Choose a DOCX or UTF-8 text file. PDF intake is not available yet.')
+  if (file.size === 0) throw new Error('Resume file is empty')
+  if (file.size > 5 * 1024 * 1024) throw new Error('Resume file exceeds the 5 MB limit')
+  return api<ResumeIntakePreview>(`/resume-intake/preview?filename=${encodeURIComponent(file.name)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file, signal,
+  })
+}
+
 export async function downloadBackup(): Promise<Blob> {
   const response = await fetch(`${API_ROOT}/backup/export`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

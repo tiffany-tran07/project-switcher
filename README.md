@@ -36,6 +36,12 @@ Open <http://127.0.0.1:5173>. The API is at <http://127.0.0.1:8000/health>; it r
 
 The app opens with counts and recent jobs, resumes, and applications, plus evidence needing review and follow-ups due on or before today's UTC date. Rejected and withdrawn applications are excluded from due reminders. A verified evidence record whose source context has been archived is not counted as ready for drafting. Each list shows at most five records while totals include all non-archived records. Select a row to open that specific record; the dashboard never sends follow-up messages automatically.
 
+## Existing resume intake (preview only)
+
+Open **Intake** to select an existing `.docx` or UTF-8 `.txt` resume, or paste its text. Files are processed by the configured backend (localhost by default), without AI calls, saved uploads, database records, or automatic verification. Check extracted dates, metrics, symbols, and table order before copying individual accomplishments into Evidence and linking the correct experience/project. DOCX headers, footers, text boxes, images, and nested tables may be omitted; table cells are shown in physical document order. PDF intake is not available yet—paste text from your PDF instead. Previews disappear when leaving the page.
+
+Limits: 5 MB upload, 32 MB expanded DOCX, 8 MB per XML part, 500 package entries, and 100,000 extracted characters. Invalid packages, macro-enabled content, embedded objects, XML entity declarations, and unsupported entry types are rejected. A resume is a starting point for review, not independent proof of its claims.
+
 ## Career library
 
 Use the sidebar to add experiences and projects, then create skills with optional aliases. Add one evidence item for each claim, link it to an experience or project, and record where you can verify it. Metrics have their own source notes. Save the item before clicking **Verify**. Editing a claim, its context, a linked skill, or a metric returns it to draft and clears approval on its bullet variants.
@@ -70,7 +76,7 @@ python -m app.restore /path/to/resume-backup.zip --check-only
 python -m app.restore /path/to/resume-backup.zip --destination /absolute/path/to/new-data
 ```
 
-Validation checks file paths, entry types, duplicates, limits, hashes, database integrity, foreign keys, resume evidence links, export references, and the exact trusted schema/triggers built from this app's migrations. The backup must have the same schema revision as this app; incompatible revisions are refused rather than silently upgraded. Restore also applies the current source-wording rules to saved bullets; older backups with broader wording edits may be refused even when the schema matches. Keep the original data rather than bypassing these checks. Checksums detect damage, not authorship: use only backups you created and trust. After successful restore, stop the API, set `DATA_DIR` in `.env` to the new absolute directory, clear `DATABASE_URL`, and restart. Review the restored data and exports before retiring the original directory. No browser upload or live-database replacement is enabled.
+Validation checks file paths, entry types, duplicates, limits, hashes, database integrity, foreign keys, resume evidence links, export references, and the exact trusted schema/triggers built from this app's migrations. The backup must have the same schema revision as this app; incompatible revisions are refused rather than silently upgraded. Restore also applies the current source-wording rules to saved bullets; older backups with broader wording edits may be refused even when the schema matches. Keep the original data rather than bypassing these checks. Checksums detect damage, not authorship: use only backups you created and trust. After successful restore, stop the API, set `DATA_DIR` in `.env` to the new absolute directory, clear `DATABASE_URL`, and restart. Review the restored data and exports before retiring the original directory. No browser backup upload or live-database replacement is enabled.
 
 ## Checks
 
