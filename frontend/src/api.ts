@@ -33,7 +33,7 @@ export type AtsReport = {
   requirements: { requirement_id: string; text: string; status: AtsStatus; evidence_ids: string[]; reason: string }[]
   formatting: { name: string; status: 'passed' | 'warning' | 'not_checked'; message: string }[]
 }
-export type ExportFile = { id: string; version_id: string; format: string; checksum: string; extracted_text: string; created_at: string }
+export type ExportFile = { id: string; version_id: string; format: 'docx' | 'pdf'; checksum: string; extracted_text: string; page_count: number | null; created_at: string }
 export type Resume = { id: string; job_id: string; name: string; status: string; created_at: string }
 export type ResumeBullet = { id: string; evidence_id: string; text: string; position: number; evidence_snapshot: { claim: string; source_note: string; metrics: { name: string; value: string; unit: string }[]; experience: { organization: string; title: string; start_date?: string | null; end_date?: string | null; location?: string } | null; project: { name: string; start_date?: string | null; end_date?: string | null; url?: string } | null } }
 export type ResumeVersion = { id: string; resume_id: string; version_number: number; content: { profile: Partial<Profile>; sections: { heading: string; evidence_ids: string[] }[] }; template: string; approved_at: string | null; created_at: string; bullets: ResumeBullet[] }

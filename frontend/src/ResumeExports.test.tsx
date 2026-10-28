@@ -9,10 +9,11 @@ describe('version export controls', () => {
     expect(html).toContain('Draft versions cannot be exported')
   })
 
-  it('enables DOCX for approved snapshots without promising PDF or ATS results', () => {
+  it('enables exports for approved snapshots and explains the local converter', () => {
     const html = renderToStaticMarkup(<ResumeExports versionId="approved" approved />)
     expect(html).toContain('Generate DOCX')
     expect(html).not.toContain('disabled=""')
-    expect(html).toContain('PDF and page-count checks are not available yet')
+    expect(html).toContain('Generate PDF')
+    expect(html).toContain('PDF conversion requires local LibreOffice')
   })
 })

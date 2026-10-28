@@ -17,10 +17,10 @@ export default function ResumeExports({ versionId, approved, onEvidenceSelect }:
     return () => { active = false }
   }, [versionId])
 
-  async function generate() {
+  async function generate(format: 'docx' | 'pdf') {
     setError(''); setBusy(true)
     try {
-      const artifact = await save<ExportFile>(`/resume-versions/${versionId}/export`, 'POST', { format: 'docx' })
+      const artifact = await save<ExportFile>(`/resume-versions/${versionId}/export`, 'POST', { format })
       setFiles((current) => [artifact, ...current])
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
     finally { setBusy(false) }
@@ -37,16 +37,17 @@ export default function ResumeExports({ versionId, approved, onEvidenceSelect }:
   }
 
   return <section className="resume-exports" aria-label="Version exports">
-    <h3>DOCX export</h3>
-    <p className="hint">Single-column Word document from this saved snapshot. Text extraction is checked. PDF and page-count checks are not available yet.</p>
+    <h3>Document exports</h3>
+    <p className="hint">Single-column documents from this saved snapshot. PDF conversion requires local LibreOffice; extracted text and page count are checked before saving. Visually review the result in a document viewer.</p>
     {!approved && <p>Approve a new snapshot before exporting. Draft versions cannot be exported.</p>}
-    <div className="actions"><button type="button" disabled={!approved || busy} onClick={() => { void generate() }}>{busy ? 'Generating…' : 'Generate DOCX'}</button></div>
+    <div className="actions"><button type="button" disabled={!approved || busy} onClick={() => { void generate('docx') }}>Generate DOCX</button><button type="button" disabled={!approved || busy} onClick={() => { void generate('pdf') }}>Generate PDF</button>{busy && <span role="status">Generating…</span>}</div>
     {error && <p className="message error" role="alert">{error}</p>}
     {files.map((file) => <div className="export-file" key={file.id}>
-      <a className="button secondary" href={`${API_ROOT}/exports/${file.id}/download`} download="resume.docx">Download DOCX</a>
-      <small>Generated {new Date(file.created_at).toLocaleString()}</small>
+      <a className="button secondary" href={`${API_ROOT}/exports/${file.id}/download`} download={`resume.${file.format}`}>Download {file.format.toUpperCase()}</a>
+      <small>Generated {new Date(file.created_at).toLocaleString()}{file.page_count !== null && ` · ${file.page_count} page${file.page_count === 1 ? '' : 's'}`}</small>
       <details><summary>Extracted document text</summary><pre>{file.extracted_text}</pre><small>SHA-256: {file.checksum}</small></details>
-      <div className="actions"><button type="button" className="secondary" disabled={analyzing !== null} onClick={() => { void analyze(file.id) }}>{analyzing === file.id ? 'Analyzing…' : 'Run ATS readiness check'}</button></div>
+      <div className="actions"><button type="button" className="secondary" disabled={analyzing !== null || file.format !== 'docx'} onClick={() => { void analyze(file.id) }}>{analyzing === file.id ? 'Analyzing…' : 'Run ATS readiness check'}</button></div>
+      {file.format === 'pdf' && <p className="hint">PDF ATS analysis is not implemented yet. Review the extracted text above.</p>}
       {reports[file.id] && <AtsReadiness report={reports[file.id]} onEvidenceSelect={onEvidenceSelect} />}
     </div>)}
   </section>

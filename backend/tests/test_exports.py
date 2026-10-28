@@ -137,7 +137,7 @@ def test_export_rejects_drafts_unknown_versions_and_unsupported_formats(
     assert client.get("/api/v1/exports/missing/download").status_code == 404
     assert (
         client.post(
-            f"/api/v1/resume-versions/{snapshot['approved']['id']}/export", json={"format": "pdf"}
+            f"/api/v1/resume-versions/{snapshot['approved']['id']}/export", json={"format": "txt"}
         ).status_code
         == 422
     )

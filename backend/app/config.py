@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     app_port: int = 8000
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_chat_model: str = ""
+    libreoffice_path: str = ""
 
     @property
     def resolved_data_dir(self) -> Path:

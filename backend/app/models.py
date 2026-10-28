@@ -130,6 +130,7 @@ class ExportFile(Base):
     relative_path: Mapped[str] = mapped_column(String(500), unique=True)
     checksum: Mapped[str] = mapped_column(String(64))
     extracted_text: Mapped[str] = mapped_column(Text)
+    page_count: Mapped[int | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 

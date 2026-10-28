@@ -93,7 +93,7 @@ class AtsReportOut(BaseModel):
 
 
 class ExportRequest(BaseModel):
-    format: Literal["docx"] = "docx"
+    format: Literal["docx", "pdf"] = "docx"
 
 
 class ExportFileOut(BaseModel):
@@ -103,6 +103,7 @@ class ExportFileOut(BaseModel):
     format: str
     checksum: str
     extracted_text: str
+    page_count: int | None
     created_at: datetime
 
 

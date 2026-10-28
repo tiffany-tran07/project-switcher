@@ -12,6 +12,7 @@ from app.config import settings
 from app.documents import render_docx
 from app.library import get_session
 from app.models import ExportFile, ResumeVersion, new_id
+from app.pdf import PdfConversionError, convert_pdf
 from app.schemas import ExportFileOut, ExportRequest, ResumeVersionOut
 
 router = APIRouter(prefix="/api/v1", tags=["exports"])
@@ -43,8 +44,14 @@ def create_export(
         content, extracted = render_docx(ResumeVersionOut.model_validate(version))
     except ValueError as exc:
         raise HTTPException(422, "Snapshot could not be rendered with text preserved") from exc
+    page_count = None
+    if data.format == "pdf":
+        try:
+            content, extracted, page_count = convert_pdf(content, extracted)
+        except PdfConversionError as exc:
+            raise HTTPException(503, str(exc)) from exc
     export_id = new_id()
-    relative = f"exports/{export_id}.docx"
+    relative = f"exports/{export_id}.{data.format}"
     path = export_path(relative)
     row = ExportFile(
         id=export_id,
@@ -53,6 +60,7 @@ def create_export(
         relative_path=relative,
         checksum=sha256(content).hexdigest(),
         extracted_text=extracted,
+        page_count=page_count,
     )
     created_file = False
     try:
@@ -105,6 +113,6 @@ def download_export(export_id: str, session: Session = Depends(get_session)) -> 
         raise HTTPException(404, "Export not found")
     return Response(
         content=read_export(row),
-        media_type=DOCX_MEDIA_TYPE,
-        headers={"Content-Disposition": 'attachment; filename="resume.docx"'},
+        media_type="application/pdf" if row.format == "pdf" else DOCX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="resume.{row.format}"'},
     )
