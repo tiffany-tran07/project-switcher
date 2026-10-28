@@ -34,6 +34,10 @@ export default function BackupSettings() {
     <div className="actions"><button type="button" disabled={busy || !acknowledged} onClick={() => { void download() }}>{busy ? 'Preparing backup…' : 'Download backup'}</button></div>
     {error && <p className="message error" role="alert">{error}</p>}
     {notice && <p className="message success" role="status">{notice}</p>}
-    <p className="hint">Export only for now: validated restore is the next step. Backups omit .env, runtime dependencies, temporary files, and unregistered export artifacts. Limit: 256 MB uncompressed, 2,000 data files. Missing or damaged registered export files must be repaired first; generating a new artifact does not replace the original record.</p>
+    <h3>Restore safely into a new directory</h3>
+    <p>Restore is available from the backend command line. Existing directories and the active data directory are never overwritten. Use only backups you created and trust; checksums detect corruption, not authorship.</p>
+    <pre className="restore-command">{'# From backend, with the project virtual environment active:\npython -m app.restore /path/to/resume-backup.zip --check-only\npython -m app.restore /path/to/resume-backup.zip --destination /new/data-directory'}</pre>
+    <p className="hint">The destination must not exist, and its parent must already exist. After restore succeeds, stop the API, set DATA_DIR to the new absolute path, clear DATABASE_URL, and restart. Keep the original data until you have reviewed the restored installation.</p>
+    <p className="hint">Backups omit .env, runtime dependencies, temporary files, and unregistered export artifacts. Limit: 256 MB uncompressed, 2,000 data files. Missing or damaged registered export files must be repaired first; generating a new artifact does not replace the original record.</p>
   </section>
 }

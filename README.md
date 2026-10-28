@@ -52,11 +52,21 @@ Install the current backend requirements and run `alembic upgrade head` after pu
 
 ## Application tracker (Milestone 6 in progress)
 
-Use **Applications** to create a local record tied to an exact approved resume version for the same job. The tracker copies the employer, role, and posting URL at creation, and fixes the job/version links so later library or posting edits do not change what was tracked. View the saved resume and its exports directly in the detail pane. Update statuses, applied/follow-up dates, and notes; each meaningful update appends a timestamped history event. Setting status to **applied** defaults the applied date to today's UTC date when no date is supplied; dates can be corrected or cleared. History notes are append-only. Creating a record or updating its status never submits anything to a job site. Save edits before changing records. Portable backup export is available in Settings; validated restore remains pending.
+Use **Applications** to create a local record tied to an exact approved resume version for the same job. The tracker copies the employer, role, and posting URL at creation, and fixes the job/version links so later library or posting edits do not change what was tracked. View the saved resume and its exports directly in the detail pane. Update statuses, applied/follow-up dates, and notes; each meaningful update appends a timestamped history event. Setting status to **applied** defaults the applied date to today's UTC date when no date is supplied; dates can be corrected or cleared. History notes are append-only. Creating a record or updating its status never submits anything to a job site. Save edits before changing records. Portable backup export is available in Settings; validated restore is available through the backend CLI into a new directory.
 
-## Portable backups (export available; restore pending)
+## Portable backups and clean-directory restore
 
-In **Settings**, acknowledge that the archive contains unencrypted personal data and choose **Download backup**. The ZIP contains a consistent SQLite snapshot (including migrations, search indexes, immutable resume versions, and application history), all regular attachment files, and exports referenced by that database snapshot. `manifest.json` records the schema revision, file sizes, and SHA-256 checksums. Runtime configuration, `.env`, dependencies, temporary files, and unregistered export files are excluded. The API rejects missing/corrupt registered assets, symbolic links, invalid paths, integrity-check failures, and archives exceeding 256 MB uncompressed or 2,000 data files. Damaged original exports must be repaired before a complete backup can be made; generating a new artifact does not repair an older export record. Store archives privately, outside public Git repositories. Restore is deliberately not enabled yet; do not replace a running database manually.
+In **Settings**, acknowledge that the archive contains unencrypted personal data and choose **Download backup**. The ZIP contains a consistent SQLite snapshot (including migrations, search indexes, immutable resume versions, and application history), all regular attachment files, and exports referenced by that database snapshot. `manifest.json` records the schema revision, file sizes, and SHA-256 checksums. Runtime configuration, `.env`, dependencies, temporary files, and unregistered export files are excluded. The API rejects missing/corrupt registered assets, symbolic links, invalid paths, integrity-check failures, and archives exceeding 256 MB uncompressed or 2,000 data files. Damaged original exports must be repaired before a complete backup can be made; generating a new artifact does not repair an older export record. Store archives privately, outside public Git repositories. Restore never replaces existing or active data. With the project virtual environment active, run from `backend`:
+
+```bash
+# Validate without restoring (temporary validation files are removed afterward)
+python -m app.restore /path/to/resume-backup.zip --check-only
+
+# Restore into a NEW absolute path whose parent already exists
+python -m app.restore /path/to/resume-backup.zip --destination /absolute/path/to/new-data
+```
+
+Validation checks file paths, entry types, duplicates, limits, hashes, database integrity, foreign keys, resume evidence links, export references, and the exact trusted schema/triggers built from this app's migrations. The backup must have the same schema revision as this app; incompatible revisions are refused rather than silently upgraded. Checksums detect damage, not authorship: use only backups you created and trust. After successful restore, stop the API, set `DATA_DIR` in `.env` to the new absolute directory, clear `DATABASE_URL`, and restart. Review the restored data and exports before retiring the original directory. No browser upload or live-database replacement is enabled.
 
 ## Checks
 

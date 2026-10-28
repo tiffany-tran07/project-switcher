@@ -1,7 +1,8 @@
-"""Portable local backup export. Restore is intentionally not enabled yet."""
+"""Portable local backup export; clean-directory restore is in app.restore."""
 
 import json
 import sqlite3
+import unicodedata
 from contextlib import closing
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
@@ -22,6 +23,7 @@ from app.models import utc_now
 router = APIRouter(prefix="/api/v1/backup", tags=["backup"])
 MAX_BACKUP_BYTES = 256 * 1024 * 1024
 MAX_BACKUP_FILES = 2000
+MAX_MANIFEST_BYTES = 1024 * 1024
 
 
 class BackupRequest(BaseModel):
@@ -32,6 +34,8 @@ def safe_asset_path(relative: str, prefix: str) -> Path:
     pure = PurePosixPath(relative)
     if (
         not relative
+        or ":" in relative
+        or len(relative) > 1000
         or "\\" in relative
         or "\x00" in relative
         or pure.is_absolute()
@@ -95,8 +99,15 @@ def build_backup(session: Session, temporary: Path) -> Path:
         assets.append((relative, safe_asset_path(relative, "exports"), checksum))
     if len(assets) > MAX_BACKUP_FILES:
         raise HTTPException(413, "Backup exceeds the file count limit")
-    if len({name for name, _, _ in assets}) != len(assets):
-        raise HTTPException(409, "Backup contains duplicate asset paths")
+    portable_names = {unicodedata.normalize("NFC", name).casefold() for name, _, _ in assets}
+    if len(portable_names) != len(assets):
+        raise HTTPException(409, "Backup contains duplicate or case-colliding asset paths")
+    for name, _, _ in assets:
+        if any(
+            unicodedata.normalize("NFC", str(parent)).casefold() in portable_names
+            for parent in PurePosixPath(name).parents
+        ):
+            raise HTTPException(409, "Backup asset file and directory paths conflict")
     archive_path = temporary / "resume-backup.zip"
     total = 0
     files = []
@@ -118,22 +129,22 @@ def build_backup(session: Session, temporary: Path) -> Path:
                     409, "Export checksum failed; repair the original export file before backup"
                 )
             files.append({"path": relative, "size": size, "sha256": checksum})
-        archive.writestr(
-            "manifest.json",
-            json.dumps(
-                {
-                    "format": "resume-tailor-backup",
-                    "format_version": 1,
-                    "created_at": utc_now().isoformat(),
-                    "database_revision": revision,
-                    "database": "database.sqlite3",
-                    "files": files,
-                    "privacy": "Contains personal data. This backup is not encrypted.",
-                },
-                ensure_ascii=False,
-                indent=2,
-            ),
-        )
+        manifest = json.dumps(
+            {
+                "format": "resume-tailor-backup",
+                "format_version": 1,
+                "created_at": utc_now().isoformat(),
+                "database_revision": revision,
+                "database": "database.sqlite3",
+                "files": files,
+                "privacy": "Contains personal data. This backup is not encrypted.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ).encode("utf-8")
+        if len(manifest) > MAX_MANIFEST_BYTES:
+            raise HTTPException(413, "Backup manifest exceeds the size limit")
+        archive.writestr("manifest.json", manifest)
     return archive_path
 
 

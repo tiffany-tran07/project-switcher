@@ -11,7 +11,10 @@ describe('portable backup', () => {
     expect(html).toContain('unencrypted personal data')
     expect(html).toContain('They are not encrypted')
     expect(html).toContain('disabled=""')
-    expect(html).toContain('validated restore is the next step')
+    expect(html).toContain('--check-only')
+    expect(html).toContain('--destination')
+    expect(html).toContain('never overwritten')
+    expect(html).toContain('not authorship')
     expect(html).toContain('256 MB')
   })
 

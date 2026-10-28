@@ -142,6 +142,18 @@ def test_backup_rejects_symlinks_and_invalid_paths(
             backups.safe_asset_path(value, "exports")
 
 
+def test_export_rejects_nonportable_asset_names_and_oversized_manifest(
+    export_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asset = settings.resolved_data_dir / "attachments" / "not:portable.txt"
+    asset.write_text("content")
+    assert export_client.post("/api/v1/backup/export", json=ACK).status_code == 409
+    asset.unlink()
+    monkeypatch.setattr(backups, "MAX_MANIFEST_BYTES", 10)
+    assert export_client.post("/api/v1/backup/export", json=ACK).status_code == 413
+
+
 def test_backup_limits_and_failure_cleanup(
     export_client: TestClient,
     tmp_path: Path,
