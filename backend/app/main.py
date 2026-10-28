@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.db import engine
+from app.exports import router as exports_router
 from app.jobs import router as jobs_router
 from app.library import router as library_router
 from app.resumes import router as resumes_router
@@ -29,6 +30,7 @@ app.add_middleware(
 app.include_router(library_router)
 app.include_router(jobs_router)
 app.include_router(resumes_router)
+app.include_router(exports_router)
 
 
 @app.get("/health")

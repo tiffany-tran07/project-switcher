@@ -121,6 +121,18 @@ class ResumeVersion(Base):
     )
 
 
+class ExportFile(Base):
+    __tablename__ = "export_files"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    version_id: Mapped[str] = mapped_column(ForeignKey("resume_versions.id", ondelete="RESTRICT"))
+    format: Mapped[str] = mapped_column(String(10))
+    relative_path: Mapped[str] = mapped_column(String(500), unique=True)
+    checksum: Mapped[str] = mapped_column(String(64))
+    extracted_text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class ResumeBullet(Base):
     __tablename__ = "resume_bullets"
 

@@ -60,6 +60,20 @@ class DraftValidationOut(BaseModel):
     issues: list[DraftValidationIssue]
 
 
+class ExportRequest(BaseModel):
+    format: Literal["docx"] = "docx"
+
+
+class ExportFileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    version_id: str
+    format: str
+    checksum: str
+    extracted_text: str
+    created_at: datetime
+
+
 class ResumeBulletOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str

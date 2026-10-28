@@ -1,0 +1,18 @@
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it } from 'vitest'
+import ResumeExports from './ResumeExports'
+
+describe('version export controls', () => {
+  it('prevents draft exports and explains approval', () => {
+    const html = renderToStaticMarkup(<ResumeExports versionId="draft" approved={false} />)
+    expect(html).toContain('disabled=""')
+    expect(html).toContain('Draft versions cannot be exported')
+  })
+
+  it('enables DOCX for approved snapshots without promising PDF or ATS results', () => {
+    const html = renderToStaticMarkup(<ResumeExports versionId="approved" approved />)
+    expect(html).toContain('Generate DOCX')
+    expect(html).not.toContain('disabled=""')
+    expect(html).toContain('ATS analysis are not available yet')
+  })
+})
