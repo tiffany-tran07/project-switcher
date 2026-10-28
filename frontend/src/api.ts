@@ -29,7 +29,7 @@ export type Job = { id: string; company: string; title: string; url: string; raw
 export type DraftValidation = { valid: boolean; issues: { evidence_id: string; position: number; code: 'duplicate' | 'unavailable_evidence' | 'section_context' | 'unsafe_wording'; message: string }[] }
 export type AtsStatus = 'present_exact' | 'present_alias' | 'supported_but_missing_from_resume' | 'no_verified_evidence'
 export type AtsReport = {
-  version_id: string; export_id: string; extracted_text: string; notes: string[]
+  version_id: string; export_id: string; format: 'docx' | 'pdf'; page_count: number | null; page_target: number; extracted_text: string; notes: string[]
   requirements: { requirement_id: string; text: string; status: AtsStatus; evidence_ids: string[]; reason: string }[]
   formatting: { name: string; status: 'passed' | 'warning' | 'not_checked'; message: string }[]
 }

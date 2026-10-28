@@ -5,7 +5,7 @@ import AtsReadiness from './AtsReadiness'
 
 function report(): AtsReport {
   return {
-    version_id: 'v', export_id: 'e', extracted_text: 'Built Python services',
+    version_id: 'v', export_id: 'e', format: 'docx', page_count: null, page_target: 2, extracted_text: 'Built Python services',
     requirements: [], formatting: [{ name: 'page_target', status: 'not_checked', message: 'Not paginated.' }],
     notes: ['No PDF analysis.'],
   }
@@ -19,6 +19,18 @@ describe('ATS readiness report', () => {
     expect(html).toContain('page target: not checked')
     expect(html).toContain('Built Python services')
     expect(html).toContain('No PDF analysis.')
+  })
+
+  it('shows measured PDF pagination separately from DOCX', () => {
+    const value = report()
+    value.format = 'pdf'; value.page_count = 3; value.page_target = 2
+    value.formatting = [{ name: 'page_target', status: 'warning', message: 'PDF exceeds target.' }]
+    const html = renderToStaticMarkup(<AtsReadiness report={value} />)
+    expect(html).toContain('this PDF')
+    expect(html).toContain('PDF page count: 3.')
+    expect(html).toContain('Page target: 2 maximum.')
+    expect(html).toContain('PDF exceeds target.')
+    expect(html).not.toContain('Page count is not measured for DOCX.')
   })
 
   it('separates wording gaps from evidence gaps and shows sources', () => {

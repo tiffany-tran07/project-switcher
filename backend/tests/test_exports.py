@@ -226,6 +226,9 @@ def test_ats_reports_confirmed_requirements_from_exported_text(
     assert report.status_code == 200
     data = report.json()
     assert data["extracted_text"] == artifact["extracted_text"]
+    assert data["format"] == "docx"
+    assert data["page_count"] is None
+    assert data["page_target"] == 2
     statuses = {row["text"]: row["status"] for row in data["requirements"]}
     assert statuses == {
         "Python": "present_exact",

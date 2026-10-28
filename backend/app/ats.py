@@ -1,4 +1,4 @@
-"""Conservative DOCX readiness checks, not an employer score prediction."""
+"""Conservative exported-document readiness checks, not an employer score prediction."""
 
 import re
 from io import BytesIO
@@ -13,6 +13,7 @@ from app.documents import document_lines
 from app.exports import read_export
 from app.library import get_session
 from app.models import EvidenceItem, ExportFile, JobRequirement, Project, ResumeVersion, Skill
+from app.pdf import PdfConversionError, extract_pdf, normalized_text, preserves_text
 from app.resumes import usable
 from app.schemas import (
     AtsReportOut,
@@ -106,6 +107,65 @@ def requirement_result(
     )
 
 
+def analyze_document(
+    content: bytes,
+    format: str,
+    expected: str,
+    page_target: int,
+) -> tuple[str, int | None, list[FormattingCheck]]:
+    page_count = None
+    if format == "pdf":
+        try:
+            extracted, page_count = extract_pdf(content)
+        except PdfConversionError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        order_ok = preserves_text(expected, extracted)
+        structure = FormattingCheck(
+            name="selectable_text",
+            status="not_checked",
+            message="PDF text extracts; selection and image-only content need visual review.",
+        )
+        pagination = FormattingCheck(
+            name="page_target",
+            status="passed" if page_count <= page_target else "warning",
+            message=f"PDF has {page_count} page(s); selected maximum is {page_target}.",
+        )
+    else:
+        try:
+            document = Document(BytesIO(content))
+        except (ValueError, KeyError, BadZipFile) as exc:
+            raise HTTPException(422, "Could not extract DOCX text") from exc
+        extracted = "\n".join(paragraph.text for paragraph in document.paragraphs)
+        order_ok = expected == extracted
+        structure = FormattingCheck(
+            name="selectable_text",
+            status="passed"
+            if not document.tables and len(document.inline_shapes) == 0
+            else "warning",
+            message="Generated content is paragraph text, without tables or inline images.",
+        )
+        pagination = FormattingCheck(
+            name="page_target",
+            status="not_checked",
+            message="DOCX pagination is not measured. Analyze a PDF export for page count.",
+        )
+    checks = [
+        FormattingCheck(
+            name="text_order",
+            status="passed" if order_ok else "warning",
+            message="Compares contacts, headings, dates, and bullet order to the snapshot.",
+        ),
+        structure,
+        FormattingCheck(
+            name="characters",
+            status="warning" if "\ufffd" in extracted else "passed",
+            message="Checks for Unicode replacement characters; visually review other symbols.",
+        ),
+        pagination,
+    ]
+    return extracted, page_count, checks
+
+
 @router.post("/resume-versions/{version_id}/ats", response_model=AtsReportOut)
 def analyze_export(
     version_id: str,
@@ -122,14 +182,15 @@ def analyze_export(
     artifact = session.get(ExportFile, data.export_id)
     if artifact is None or artifact.version_id != version_id:
         raise HTTPException(404, "Export not found for this resume version")
-    if artifact.format != "docx":
-        raise HTTPException(422, "Only DOCX analysis is currently supported")
+    if artifact.format not in {"docx", "pdf"}:
+        raise HTTPException(422, "Unsupported export format")
     content = read_export(artifact)
-    try:
-        document = Document(BytesIO(content))
-    except (ValueError, KeyError, BadZipFile) as exc:
-        raise HTTPException(422, "Could not extract DOCX text") from exc
-    extracted = "\n".join(paragraph.text for paragraph in document.paragraphs)
+    expected = "\n".join(
+        text for _, text in document_lines(ResumeVersionOut.model_validate(version))
+    )
+    extracted, page_count, checks = analyze_document(
+        content, artifact.format, expected, data.page_target
+    )
     skills = list(
         session.scalars(
             select(Skill).options(selectinload(Skill.aliases)).where(Skill.archived_at.is_(None))
@@ -169,39 +230,16 @@ def analyze_export(
         )
         .order_by(JobRequirement.position)
     ).all()
-    expected = "\n".join(
-        text for _, text in document_lines(ResumeVersionOut.model_validate(version))
-    )
-    checks = [
-        FormattingCheck(
-            name="text_order",
-            status="passed" if expected == extracted else "warning",
-            message="Compares contacts, headings, dates, and bullet order to the snapshot.",
-        ),
-        FormattingCheck(
-            name="selectable_text",
-            status="passed"
-            if not document.tables and len(document.inline_shapes) == 0
-            else "warning",
-            message="Generated content is paragraph text, without tables or inline images.",
-        ),
-        FormattingCheck(
-            name="characters",
-            status="warning" if "\ufffd" in extracted else "passed",
-            message="Checks for Unicode replacement characters; visually review other symbols.",
-        ),
-        FormattingCheck(
-            name="page_target",
-            status="not_checked",
-            message="DOCX pagination needs a document renderer; page count is not checked.",
-        ),
-    ]
+    lookup_text = normalized_text(extracted) if artifact.format == "pdf" else extracted
     return AtsReportOut(
         version_id=version_id,
         export_id=artifact.id,
+        format=artifact.format,
+        page_count=page_count,
+        page_target=data.page_target,
         extracted_text=extracted,
         requirements=[
-            requirement_result(req, extracted, candidates, skills) for req in requirements
+            requirement_result(req, lookup_text, candidates, skills) for req in requirements
         ],
         formatting=checks,
         notes=[
@@ -209,7 +247,8 @@ def analyze_export(
             "Uses current user-confirmed requirements and configured skill aliases.",
             "Support includes verified snapshot sources and active verified library evidence.",
             "Related evidence needs human review and does not count as direct support.",
-            "Text is re-extracted from the checksum-verified DOCX; PDF checks are pending.",
+            "Text and PDF page counts are re-extracted from the checksum-verified file.",
+            "PDF layout, selection, and visual quality still need human review.",
         ]
         + (
             []

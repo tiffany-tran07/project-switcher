@@ -10,7 +10,8 @@ const labels: Record<AtsStatus, string> = {
 export default function AtsReadiness({ report, onEvidenceSelect }: { report: AtsReport; onEvidenceSelect?: (id: string) => void }) {
   return <section className="ats-report" aria-label="ATS readiness report">
     <h3>ATS readiness report</h3>
-    <p className="hint">Not an employer score prediction. These results apply to this DOCX and the current confirmed job requirements.</p>
+    <p className="hint">Not an employer score prediction. These results apply to this {report.format.toUpperCase()} and the current confirmed job requirements.</p>
+    <p>Page target: {report.page_target} maximum. {report.page_count === null ? 'Page count is not measured for DOCX.' : `PDF page count: ${report.page_count}.`}</p>
     {!report.requirements.length && <p>No confirmed requirements. Review and confirm them in Jobs, then rerun this report.</p>}
     {report.requirements.map((row) => <div className="match-card" key={row.requirement_id}>
       <div className="editor-title"><strong>{row.text}</strong><span className={`match-status ${row.status === 'no_verified_evidence' ? 'unsupported' : row.status === 'supported_but_missing_from_resume' ? 'related' : ''}`}>{labels[row.status]}</span></div>

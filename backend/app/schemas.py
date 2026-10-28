@@ -62,6 +62,7 @@ class DraftValidationOut(BaseModel):
 
 class AtsRequest(BaseModel):
     export_id: str
+    page_target: int = Field(default=2, ge=1, le=10)
 
 
 class AtsRequirementOut(BaseModel):
@@ -86,6 +87,9 @@ class FormattingCheck(BaseModel):
 class AtsReportOut(BaseModel):
     version_id: str
     export_id: str
+    format: Literal["docx", "pdf"]
+    page_count: int | None
+    page_target: int
     extracted_text: str
     requirements: list[AtsRequirementOut]
     formatting: list[FormattingCheck]
