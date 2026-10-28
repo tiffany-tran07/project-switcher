@@ -60,6 +60,38 @@ class DraftValidationOut(BaseModel):
     issues: list[DraftValidationIssue]
 
 
+class AtsRequest(BaseModel):
+    export_id: str
+
+
+class AtsRequirementOut(BaseModel):
+    requirement_id: str
+    text: str
+    status: Literal[
+        "present_exact",
+        "present_alias",
+        "supported_but_missing_from_resume",
+        "no_verified_evidence",
+    ]
+    evidence_ids: list[str]
+    reason: str
+
+
+class FormattingCheck(BaseModel):
+    name: str
+    status: Literal["passed", "warning", "not_checked"]
+    message: str
+
+
+class AtsReportOut(BaseModel):
+    version_id: str
+    export_id: str
+    extracted_text: str
+    requirements: list[AtsRequirementOut]
+    formatting: list[FormattingCheck]
+    notes: list[str]
+
+
 class ExportRequest(BaseModel):
     format: Literal["docx"] = "docx"
 

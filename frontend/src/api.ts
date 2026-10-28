@@ -27,6 +27,12 @@ export type SearchResult = { type: 'experience' | 'project' | 'skill' | 'evidenc
 export type Requirement = { id?: string; text: string; supporting_span?: string | null; normalized_term: string; kind: 'skill' | 'tool' | 'responsibility' | 'experience' | 'education' | 'certification'; priority: 'required' | 'preferred' | 'unclear'; confirmed: boolean }
 export type Job = { id: string; company: string; title: string; url: string; raw_description: string; source: string; created_at: string; requirements: Requirement[] }
 export type DraftValidation = { valid: boolean; issues: { evidence_id: string; position: number; code: 'duplicate' | 'unavailable_evidence' | 'section_context' | 'unsafe_wording'; message: string }[] }
+export type AtsStatus = 'present_exact' | 'present_alias' | 'supported_but_missing_from_resume' | 'no_verified_evidence'
+export type AtsReport = {
+  version_id: string; export_id: string; extracted_text: string; notes: string[]
+  requirements: { requirement_id: string; text: string; status: AtsStatus; evidence_ids: string[]; reason: string }[]
+  formatting: { name: string; status: 'passed' | 'warning' | 'not_checked'; message: string }[]
+}
 export type ExportFile = { id: string; version_id: string; format: string; checksum: string; extracted_text: string; created_at: string }
 export type Resume = { id: string; job_id: string; name: string; status: string; created_at: string }
 export type ResumeBullet = { id: string; evidence_id: string; text: string; position: number; evidence_snapshot: { claim: string; source_note: string; metrics: { name: string; value: string; unit: string }[]; experience: { organization: string; title: string; start_date?: string | null; end_date?: string | null; location?: string } | null; project: { name: string; start_date?: string | null; end_date?: string | null; url?: string } | null } }

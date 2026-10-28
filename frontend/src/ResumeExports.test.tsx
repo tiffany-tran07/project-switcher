@@ -13,6 +13,6 @@ describe('version export controls', () => {
     const html = renderToStaticMarkup(<ResumeExports versionId="approved" approved />)
     expect(html).toContain('Generate DOCX')
     expect(html).not.toContain('disabled=""')
-    expect(html).toContain('ATS analysis are not available yet')
+    expect(html).toContain('PDF and page-count checks are not available yet')
   })
 })

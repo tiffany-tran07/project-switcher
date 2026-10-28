@@ -54,7 +54,7 @@ def snapshot(export_client: TestClient) -> dict[str, Any]:
         "/api/v1/evidence",
         json={
             "experience_id": experience["id"],
-            "claim": "Improved Python reports by 30%",
+            "claim": "Improved Python reports by 30% with Postgres",
             "source_note": "Private verification notes",
         },
     ).json()
@@ -173,6 +173,119 @@ def test_export_path_blocks_traversal_and_symlinks(
         exports.export_path("exports/test.docx")
     with pytest.raises(HTTPException):
         exports.export_path("../outside/test.docx")
+
+
+def test_ats_reports_confirmed_requirements_from_exported_text(
+    export_client: TestClient,
+    snapshot: dict[str, Any],
+) -> None:
+    client = export_client
+    version = snapshot["approved"]
+    artifact = client.post(f"/api/v1/resume-versions/{version['id']}/export", json={}).json()
+    resume = client.get(f"/api/v1/resumes/{version['resume_id']}").json()
+    skill = client.post(
+        "/api/v1/skills", json={"name": "PostgreSQL", "aliases": ["Postgres"]}
+    ).json()
+    assert skill["name"] == "PostgreSQL"
+    evidence = snapshot["evidence"]
+    library = client.post(
+        "/api/v1/evidence",
+        json={
+            "experience_id": evidence["experience_id"],
+            "claim": "Built Docker containers",
+            "source_note": "Verified deployment notes",
+        },
+    ).json()
+    client.patch(f"/api/v1/evidence/{library['id']}", json={"state": "verified"})
+    client.post(
+        "/api/v1/evidence",
+        json={
+            "experience_id": evidence["experience_id"],
+            "claim": "Ran Kubernetes clusters",
+            "source_note": "Unverified note",
+        },
+    )
+    req_path = f"/api/v1/jobs/{resume['job_id']}/requirements"
+    requirements = client.patch(
+        req_path,
+        json={
+            "requirements": [
+                {"text": text} for text in ("Python", "PostgreSQL", "Docker", "Kubernetes", "Java")
+            ]
+        },
+    ).json()
+    # New or edited requirement text must be saved before a separate confirmation.
+    client.patch(
+        req_path,
+        json={
+            "requirements": [{**row, "confirmed": row["text"] != "Java"} for row in requirements]
+        },
+    )
+    url = f"/api/v1/resume-versions/{version['id']}/ats"
+    report = client.post(url, json={"export_id": artifact["id"]})
+    assert report.status_code == 200
+    data = report.json()
+    assert data["extracted_text"] == artifact["extracted_text"]
+    statuses = {row["text"]: row["status"] for row in data["requirements"]}
+    assert statuses == {
+        "Python": "present_exact",
+        "PostgreSQL": "present_alias",
+        "Docker": "supported_but_missing_from_resume",
+        "Kubernetes": "no_verified_evidence",
+    }
+    assert next(row for row in data["requirements"] if row["text"] == "Docker")["evidence_ids"] == [
+        library["id"]
+    ]
+    assert {row["name"]: row["status"] for row in data["formatting"]} == {
+        "text_order": "passed",
+        "selectable_text": "passed",
+        "characters": "passed",
+        "page_target": "not_checked",
+    }
+    # Snapshot evidence still supports this historical document after the library is demoted.
+    client.patch(f"/api/v1/evidence/{evidence['id']}", json={"state": "rejected"})
+    again = client.post(url, json={"export_id": artifact["id"]}).json()
+    assert (
+        next(row for row in again["requirements"] if row["text"] == "Python")["status"]
+        == "present_exact"
+    )
+    # Never analyze cached extraction if the artifact on disk fails its checksum.
+    path = settings.resolved_data_dir / "exports" / f"{artifact['id']}.docx"
+    path.write_bytes(b"tampered")
+    assert client.post(url, json={"export_id": artifact["id"]}).status_code == 409
+
+
+def test_ats_empty_confirmation_and_cross_version_export(
+    export_client: TestClient,
+    snapshot: dict[str, Any],
+) -> None:
+    client = export_client
+    approved_id = snapshot["approved"]["id"]
+    artifact = client.post(f"/api/v1/resume-versions/{approved_id}/export", json={}).json()
+    report = client.post(
+        f"/api/v1/resume-versions/{approved_id}/ats", json={"export_id": artifact["id"]}
+    ).json()
+    assert report["requirements"] == []
+    assert any("No confirmed requirements" in note for note in report["notes"])
+    draft_id = snapshot["draft"]["id"]
+    assert (
+        client.post(
+            f"/api/v1/resume-versions/{draft_id}/ats", json={"export_id": artifact["id"]}
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            "/api/v1/resume-versions/missing/ats", json={"export_id": artifact["id"]}
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            f"/api/v1/resume-versions/{approved_id}/ats", json={"export_id": "missing"}
+        ).status_code
+        == 404
+    )
 
 
 def test_docx_respects_section_order_and_project_dates(snapshot: dict[str, Any]) -> None:

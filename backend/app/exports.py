@@ -87,11 +87,7 @@ def list_exports(version_id: str, session: Session = Depends(get_session)) -> li
     )
 
 
-@router.get("/exports/{export_id}/download")
-def download_export(export_id: str, session: Session = Depends(get_session)) -> Response:
-    row = session.get(ExportFile, export_id)
-    if row is None:
-        raise HTTPException(404, "Export not found")
+def read_export(row: ExportFile) -> bytes:
     path = export_path(row.relative_path)
     try:
         content = path.read_bytes()
@@ -99,8 +95,16 @@ def download_export(export_id: str, session: Session = Depends(get_session)) -> 
         raise HTTPException(404, "Export file is unavailable; generate it again") from exc
     if sha256(content).hexdigest() != row.checksum:
         raise HTTPException(409, "Export checksum failed; generate it again")
+    return content
+
+
+@router.get("/exports/{export_id}/download")
+def download_export(export_id: str, session: Session = Depends(get_session)) -> Response:
+    row = session.get(ExportFile, export_id)
+    if row is None:
+        raise HTTPException(404, "Export not found")
     return Response(
-        content=content,
+        content=read_export(row),
         media_type=DOCX_MEDIA_TYPE,
         headers={"Content-Disposition": 'attachment; filename="resume.docx"'},
     )
