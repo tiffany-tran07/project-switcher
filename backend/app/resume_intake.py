@@ -1,9 +1,10 @@
-"""Bounded, preview-only DOCX/UTF-8 text intake. No AI, persistence, or verification."""
+"""Bounded resume previews and explicitly reviewed draft evidence intake; never AI verification."""
 
 import stat
 import unicodedata
 import zlib
 from collections.abc import Iterable, Iterator
+from hashlib import sha256
 from io import BytesIO
 from pathlib import PurePosixPath
 from zipfile import ZIP_DEFLATED, ZIP_STORED, BadZipFile, ZipFile
@@ -11,10 +12,16 @@ from zipfile import ZIP_DEFLATED, ZIP_STORED, BadZipFile, ZipFile
 from docx import Document
 from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from lxml.etree import XMLSyntaxError  # type: ignore[import-untyped]
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
+
+from app.library import commit, evidence_out, get_session, validate_context
+from app.models import EvidenceItem
+from app.schemas import EvidenceOut
 
 router = APIRouter(prefix="/api/v1/resume-intake", tags=["resume intake"])
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -29,6 +36,61 @@ class IntakePreview(BaseModel):
     format: str
     text: str
     warnings: list[str]
+
+
+class IntakeDraft(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
+    source_name: str = Field(default="Pasted resume", min_length=1, max_length=255)
+    claim: str = Field(min_length=1, max_length=2000)
+    experience_id: str | None = None
+    project_id: str | None = None
+    source_note: str = Field(default="", max_length=5000)
+
+
+@router.post("/drafts", response_model=EvidenceOut, status_code=201)
+def save_intake_draft(data: IntakeDraft, session: Session = Depends(get_session)) -> EvidenceOut:
+    checked_text(data.source_text)
+    claim = data.claim.strip()
+    if not claim or claim not in data.source_text:
+        raise HTTPException(422, "Select an exact excerpt from the reviewed resume text")
+    checked_text(claim)
+    name = data.source_name.strip()
+    if not name or any(unicodedata.category(char) in {"Cc", "Cs"} for char in name):
+        raise HTTPException(422, "Source name cannot be empty or contain control characters")
+    if data.source_note.strip():
+        checked_text(data.source_note)
+    validate_context(session, data.experience_id, data.project_id)
+    existing = session.scalar(
+        select(EvidenceItem.id)
+        .where(
+            EvidenceItem.claim == claim,
+            EvidenceItem.experience_id == data.experience_id,
+            EvidenceItem.project_id == data.project_id,
+            EvidenceItem.archived_at.is_(None),
+        )
+        .limit(1)
+    )
+    if existing:
+        raise HTTPException(
+            409, "Matching active evidence already exists for this context; review it in Evidence"
+        )
+    fingerprint = sha256(data.source_text.encode("utf-8")).hexdigest()
+    row = EvidenceItem(
+        claim=claim,
+        experience_id=data.experience_id,
+        project_id=data.project_id,
+        state="draft",
+        verified_at=None,
+        source_note=(
+            f"Resume intake: {name}\nReviewed text SHA-256: {fingerprint}\n"
+            "Excerpt only; verify against underlying work before approving.\n"
+            + data.source_note.strip()
+        ).strip(),
+    )
+    session.add(row)
+    commit(session)
+    return evidence_out(row)
 
 
 def validate_package(data: bytes) -> None:
@@ -88,7 +150,8 @@ def checked_text(text: str) -> str:
     if len(text) > MAX_TEXT_CHARS:
         raise HTTPException(413, "Extracted resume text exceeds 100,000 characters")
     if any(
-        unicodedata.category(character) == "Cc" and character not in "\r\n\t" for character in text
+        unicodedata.category(character) in {"Cc", "Cs"} and character not in "\r\n\t"
+        for character in text
     ):
         raise HTTPException(422, "Resume contains unsupported control characters")
     text = text.replace("\r\n", "\n").replace("\r", "\n").strip()

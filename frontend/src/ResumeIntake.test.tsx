@@ -15,6 +15,9 @@ describe('resume intake preview', () => {
     expect(html).toContain('no career records are created or verified')
     expect(html).toContain('PDF intake is not available yet')
     expect(html).toContain('An existing resume is a starting point, not independent proof')
+    expect(html).toContain('Save as draft evidence')
+    expect(html).toContain('Highlight an accomplishment')
+    expect(html).toContain('Add an experience or project in the career library first')
     expect(html).toContain('disabled=""')
   })
 
