@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.applications import router as applications_router
 from app.ats import router as ats_router
 from app.config import settings
 from app.db import engine
@@ -33,6 +34,7 @@ app.include_router(jobs_router)
 app.include_router(resumes_router)
 app.include_router(exports_router)
 app.include_router(ats_router)
+app.include_router(applications_router)
 
 
 @app.get("/health")

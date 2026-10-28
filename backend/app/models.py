@@ -146,6 +146,46 @@ class ResumeBullet(Base):
     version: Mapped[ResumeVersion] = relationship(back_populates="bullets")
 
 
+class Application(RecordMixin, Base):
+    __tablename__ = "applications"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planned','applied','interview','offer','rejected','withdrawn')",
+            name="application_status",
+        ),
+    )
+
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"))
+    resume_version_id: Mapped[str] = mapped_column(
+        ForeignKey("resume_versions.id", ondelete="RESTRICT")
+    )
+    company: Mapped[str] = mapped_column(String(200))
+    title: Mapped[str] = mapped_column(String(200))
+    url: Mapped[str] = mapped_column(String(1000), default="")
+    status: Mapped[str] = mapped_column(String(20), default="planned")
+    applied_date: Mapped[date | None] = mapped_column(Date)
+    follow_up_date: Mapped[date | None] = mapped_column(Date)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    events: Mapped[list["ApplicationEvent"]] = relationship(
+        order_by="ApplicationEvent.created_at, ApplicationEvent.id",
+        back_populates="application",
+        cascade="save-update, merge",
+    )
+
+
+class ApplicationEvent(Base):
+    __tablename__ = "application_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    application_id: Mapped[str] = mapped_column(ForeignKey("applications.id", ondelete="RESTRICT"))
+    event_type: Mapped[str] = mapped_column(String(30))
+    previous_status: Mapped[str | None] = mapped_column(String(20))
+    status: Mapped[str | None] = mapped_column(String(20))
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    application: Mapped[Application] = relationship(back_populates="events")
+
+
 class Experience(RecordMixin, Base):
     __tablename__ = "experiences"
 

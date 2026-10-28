@@ -27,6 +27,9 @@ export type SearchResult = { type: 'experience' | 'project' | 'skill' | 'evidenc
 export type Requirement = { id?: string; text: string; supporting_span?: string | null; normalized_term: string; kind: 'skill' | 'tool' | 'responsibility' | 'experience' | 'education' | 'certification'; priority: 'required' | 'preferred' | 'unclear'; confirmed: boolean }
 export type Job = { id: string; company: string; title: string; url: string; raw_description: string; source: string; created_at: string; requirements: Requirement[] }
 export type DraftValidation = { valid: boolean; issues: { evidence_id: string; position: number; code: 'duplicate' | 'unavailable_evidence' | 'section_context' | 'unsafe_wording'; message: string }[] }
+export type ApplicationStatus = 'planned' | 'applied' | 'interview' | 'offer' | 'rejected' | 'withdrawn'
+export type ApplicationEvent = { id: string; event_type: string; previous_status: ApplicationStatus | null; status: ApplicationStatus | null; note: string; created_at: string }
+export type Application = { id: string; job_id: string; resume_version_id: string; company: string; title: string; url: string; status: ApplicationStatus; applied_date: string | null; follow_up_date: string | null; notes: string; created_at: string; updated_at: string; events: ApplicationEvent[] }
 export type AtsStatus = 'present_exact' | 'present_alias' | 'supported_but_missing_from_resume' | 'no_verified_evidence'
 export type AtsReport = {
   version_id: string; export_id: string; format: 'docx' | 'pdf'; page_count: number | null; page_target: number; extracted_text: string; notes: string[]

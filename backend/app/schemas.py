@@ -1,7 +1,77 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+ApplicationStatus = Literal["planned", "applied", "interview", "offer", "rejected", "withdrawn"]
+
+
+class ApplicationCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    job_id: str
+    resume_version_id: str
+    status: ApplicationStatus = "planned"
+    applied_date: date | None = None
+    follow_up_date: date | None = None
+    notes: str = Field(default="", max_length=20000)
+
+
+class ApplicationPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: ApplicationStatus | None = None
+    applied_date: date | None = None
+    follow_up_date: date | None = None
+    notes: str | None = Field(default=None, max_length=20000)
+    event_note: str = Field(default="", max_length=2000)
+
+    @model_validator(mode="after")
+    def non_null_fields(self) -> "ApplicationPatch":
+        for field in ("status", "notes"):
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null")
+        return self
+
+
+class ApplicationEventCreate(BaseModel):
+    note: str = Field(min_length=1, max_length=2000)
+
+
+class ApplicationEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    application_id: str
+    event_type: str
+    previous_status: str | None
+    status: str | None
+    note: str
+    created_at: datetime
+
+    @field_validator("created_at")
+    @classmethod
+    def utc_timestamp(cls, value: datetime) -> datetime:
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value
+
+
+class ApplicationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    job_id: str
+    resume_version_id: str
+    company: str
+    title: str
+    url: str
+    status: ApplicationStatus
+    applied_date: date | None
+    follow_up_date: date | None
+    notes: str
+    created_at: datetime
+    updated_at: datetime
+    events: list[ApplicationEventOut]
+
+    @field_validator("created_at", "updated_at")
+    @classmethod
+    def utc_timestamps(cls, value: datetime) -> datetime:
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
 class ResumeCreate(BaseModel):
