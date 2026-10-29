@@ -95,3 +95,16 @@ npm run typecheck
 npm test
 npm run build
 ```
+
+### Real-browser core workflow
+
+```bash
+cd frontend
+npm install
+npx playwright install chromium  # first-time browser setup
+npm run test:e2e
+```
+
+Playwright starts separate localhost servers on ports **8876** (API) and **5174** (web), refuses to reuse existing servers, and creates a fresh temporary SQLite database/data directory for each run. The backend launcher sets isolation variables before importing app settings, so your `.env` database and personal data are not used. The test uses fictional records and blocks browser requests outside those two test origins. It covers profile/experience entry, text-file intake, explicit draft evidence creation, metric entry, verification, reviewed job requirements, rejection of an unsupported metric edit, approved resume snapshots, checksum-verified DOCX download, ATS readiness, application status history, and dashboard navigation. PDF conversion is not covered by this browser test.
+
+The default Python interpreter is the repository's `.venv/bin/python`; set `E2E_PYTHON` if your virtual environment is elsewhere. Traces/screenshots on failure are saved under Git-ignored `frontend/test-results/`. `npm test` remains the lightweight unit/component suite; `npm run test:e2e` is separate.
