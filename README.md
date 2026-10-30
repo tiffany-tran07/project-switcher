@@ -46,6 +46,8 @@ Limits: 5 MB upload, 32 MB expanded DOCX, 8 MB per XML part, 500 package entries
 
 Use the sidebar to add experiences and projects, then create skills with optional aliases. Add one evidence item for each claim, link it to an experience or project, and record where you can verify it. Metrics have their own source notes. Save the item before clicking **Verify**. Editing a claim, its context, a linked skill, or a metric returns it to draft and clears approval on its bullet variants.
 
+The Evidence editor blocks verification while claim/context/skill edits or unfinished metric/bullet forms are pending. Save or explicitly reset/clear the relevant form first. Failed metric/bullet saves and deletions preserve input and edit mode; failed archiving keeps the evidence selected. A newly saved evidence record is selected automatically. If a write succeeds but refreshing fails, the UI warns you to reload before retrying instead of reporting a clean success. These safeguards do not provide cross-page autosave—save work before leaving the page.
+
 Search checks experiences, projects, skills, aliases, and evidence through SQLite FTS5. **Export JSON** downloads the complete career library, including archived records. The API schema is available at <http://127.0.0.1:8000/docs>.
 
 ## Job workspace

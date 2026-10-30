@@ -1,19 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import ResumeWorkspace from './ResumeWorkspace'
+import EvidenceEditor from './EvidenceEditor'
 import ApplicationsWorkspace from './ApplicationsWorkspace'
 import BackupSettings from './BackupSettings'
 import Dashboard from './Dashboard'
 import ResumeIntake from './ResumeIntake'
-import { api, API_ROOT, save, type Bullet, type Evidence, type Experience, type Job, type Metric, type Profile, type Project, type Requirement, type RequirementMatch, type SearchResult, type Skill } from './api'
+import { api, API_ROOT, save, type Evidence, type Experience, type Job, type Profile, type Project, type Requirement, type RequirementMatch, type SearchResult, type Skill } from './api'
 
 type Section = 'evidence' | 'experiences' | 'projects' | 'skills' | 'profile' | 'jobs' | 'resumes' | 'applications' | 'settings' | 'dashboard' | 'intake'
 const emptyProfile: Profile = { name: '', email: '', phone: '', location: '', links: [] }
 const emptyExperience = { organization: '', title: '', start_date: '', end_date: '', location: '', description: '' }
 const emptyProject = { experience_id: '', name: '', summary: '', start_date: '', end_date: '', url: '' }
 const emptySkill = { name: '', category: '', aliases: '' }
-const emptyEvidence = { claim: '', source_note: '', experience_id: '', project_id: '', skill_ids: [] as string[] }
-const emptyMetric = { name: '', value: '', unit: '', context: '', source_note: '' }
-const emptyBullet = { text: '', tone: '', approved: false }
 
 function dateValue(value: string | null | undefined) { return value ?? '' }
 function toNullableDate(value: string) { return value || null }
@@ -49,8 +47,13 @@ export default function App() {
 
   async function run(action: () => Promise<unknown>, message: string) {
     setBusy(true); setError(''); setNotice('')
-    try { await action(); await load(); setNotice(message) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+    let saved = false
+    try { await action(); saved = true; await load(); setNotice(message); return true }
+    catch (cause) {
+      const detail = cause instanceof Error ? cause.message : String(cause)
+      setError(saved ? `Saved, but refreshing failed. Reload the page before retrying. ${detail}` : detail)
+      return false
+    }
     finally { setBusy(false) }
   }
 
@@ -202,21 +205,4 @@ function SkillEditor({ rows, selectedId, busy, onSelect, onSave, onArchive }: { 
   const [form, setForm] = useState(emptySkill)
   useEffect(() => setForm(selected ? { name: selected.name, category: selected.category, aliases: selected.aliases.join(', ') } : emptySkill), [selected])
   return <div className="workspace"><RecordList title="Skills" rows={rows} selectedId={selectedId} onSelect={onSelect} render={(row: Skill) => row.name} /><form className="editor-card" onSubmit={(event) => { event.preventDefault(); onSave(selectedId, { name: form.name, category: form.category, aliases: form.aliases.split(',').map((value) => value.trim()).filter(Boolean) }) }}><h2>{selected ? 'Edit skill' : 'New skill'}</h2><label>Name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Category<input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label><label>Aliases, separated by commas<input value={form.aliases} onChange={(event) => setForm({ ...form, aliases: event.target.value })} placeholder="Postgres, PostgreSQL" /></label><div className="actions"><button disabled={busy}>Save skill</button>{selected && <button type="button" className="danger" disabled={busy} onClick={() => { onArchive(selected.id); onSelect(null) }}>Archive</button>}</div></form></div>
-}
-
-function EvidenceEditor({ rows, experiences, projects, skills, selectedId, busy, onSelect, run }: { rows: Evidence[]; experiences: Experience[]; projects: Project[]; skills: Skill[]; selectedId: string | null; busy: boolean; onSelect: (id: string | null) => void; run: (action: () => Promise<unknown>, message: string) => Promise<void> }) {
-  const selected = rows.find((row) => row.id === selectedId)
-  const [form, setForm] = useState(emptyEvidence)
-  const [metricForm, setMetricForm] = useState(emptyMetric)
-  const [bulletForm, setBulletForm] = useState(emptyBullet)
-  const [editingMetric, setEditingMetric] = useState<string | null>(null)
-  const [editingBullet, setEditingBullet] = useState<string | null>(null)
-  useEffect(() => { setForm(selected ? { claim: selected.claim, source_note: selected.source_note, experience_id: selected.experience_id ?? '', project_id: selected.project_id ?? '', skill_ids: selected.skill_ids } : emptyEvidence); setMetricForm(emptyMetric); setBulletForm(emptyBullet); setEditingMetric(null); setEditingBullet(null) }, [selected])
-  async function saveEvidence() {
-    const data = { ...form, experience_id: form.experience_id || null, project_id: form.project_id || null }
-    await run(() => save(selectedId ? `/evidence/${selectedId}` : '/evidence', selectedId ? 'PATCH' : 'POST', data), 'Evidence saved. Review its verification state.')
-  }
-  function chooseMetric(metric: Metric) { setEditingMetric(metric.id); setMetricForm({ name: metric.name, value: metric.value, unit: metric.unit, context: metric.context, source_note: metric.source_note }) }
-  function chooseBullet(bullet: Bullet) { setEditingBullet(bullet.id); setBulletForm({ text: bullet.text, tone: bullet.tone, approved: Boolean(bullet.approved_at) }) }
-  return <div className="workspace"><RecordList title="Evidence" rows={rows} selectedId={selectedId} onSelect={onSelect} render={(row: Evidence) => `${row.claim} · ${row.state}`} /><div className="editor-stack"><form className="editor-card" onSubmit={(event) => { event.preventDefault(); void saveEvidence() }}><div className="editor-title"><h2>{selected ? 'Edit evidence' : 'New evidence'}</h2>{selected && <span className={`badge ${selected.state}`}>{selected.state}</span>}</div><label>Claim<textarea required value={form.claim} onChange={(event) => setForm({ ...form, claim: event.target.value })} placeholder="What did you do?" /></label><label>Source note<textarea value={form.source_note} onChange={(event) => setForm({ ...form, source_note: event.target.value })} placeholder="Where can you verify this claim?" /></label><div className="form-grid"><label>Experience<select value={form.experience_id} onChange={(event) => setForm({ ...form, experience_id: event.target.value })}><option value="">None</option>{experiences.map((row) => <option key={row.id} value={row.id}>{labelForExperience(row)}</option>)}</select></label><label>Project<select value={form.project_id} onChange={(event) => setForm({ ...form, project_id: event.target.value })}><option value="">None</option>{projects.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label></div><fieldset><legend>Skills demonstrated</legend><div className="skill-options">{skills.length ? skills.map((skill) => <label key={skill.id}><input type="checkbox" checked={form.skill_ids.includes(skill.id)} onChange={(event) => setForm({ ...form, skill_ids: event.target.checked ? [...form.skill_ids, skill.id] : form.skill_ids.filter((id) => id !== skill.id) })} />{skill.name}</label>) : <span>Add skills in the Skills section to link them here.</span>}</div></fieldset><div className="actions"><button disabled={busy}>Save evidence</button>{selected && <><button type="button" className="secondary" disabled={busy || !selected.source_note} onClick={() => run(() => save(`/evidence/${selected.id}`, 'PATCH', { state: 'verified' }), 'Evidence verified.')}>Verify</button><button type="button" className="secondary" disabled={busy} onClick={() => run(() => save(`/evidence/${selected.id}`, 'PATCH', { state: 'rejected' }), 'Evidence rejected.')}>Reject</button><button type="button" className="danger" disabled={busy} onClick={() => { run(() => save(`/evidence/${selected.id}`, 'PATCH', { archived: true }), 'Evidence archived.'); onSelect(null) }}>Archive</button></>}</div><p className="hint">Save changes before verifying. Editing a claim, its context, or a metric returns it to draft.</p></form>{selected && <><form className="editor-card" onSubmit={(event) => { event.preventDefault(); run(() => save(editingMetric ? `/metrics/${editingMetric}` : `/evidence/${selected.id}/metrics`, editingMetric ? 'PATCH' : 'POST', metricForm), 'Metric saved. Evidence returned to draft.'); setMetricForm(emptyMetric); setEditingMetric(null) }}><h2>Metrics</h2>{selected.metrics.map((metric) => <button type="button" className="subrecord" key={metric.id} onClick={() => chooseMetric(metric)}>{metric.name}: {metric.value} {metric.unit}</button>)}<div className="form-grid"><label>Name<input required value={metricForm.name} onChange={(event) => setMetricForm({ ...metricForm, name: event.target.value })} /></label><label>Value<input required value={metricForm.value} onChange={(event) => setMetricForm({ ...metricForm, value: event.target.value })} /></label><label>Unit<input value={metricForm.unit} onChange={(event) => setMetricForm({ ...metricForm, unit: event.target.value })} /></label></div><label>Context<textarea value={metricForm.context} onChange={(event) => setMetricForm({ ...metricForm, context: event.target.value })} /></label><label>Metric source note<textarea value={metricForm.source_note} onChange={(event) => setMetricForm({ ...metricForm, source_note: event.target.value })} /></label><div className="actions"><button disabled={busy}>{editingMetric ? 'Update metric' : 'Add metric'}</button>{editingMetric && <button type="button" className="secondary" onClick={() => { setEditingMetric(null); setMetricForm(emptyMetric) }}>Cancel edit</button>}{editingMetric && <button type="button" className="danger" disabled={busy} onClick={() => { if (window.confirm("Delete this metric?")) { void run(() => api<void>(`/metrics/${editingMetric}`, { method: "DELETE" }), "Metric deleted. Evidence returned to draft."); setEditingMetric(null); setMetricForm(emptyMetric) } }}>Delete metric</button>}</div></form><form className="editor-card" onSubmit={(event) => { event.preventDefault(); run(() => save(editingBullet ? `/bullets/${editingBullet}` : `/evidence/${selected.id}/bullets`, editingBullet ? 'PATCH' : 'POST', bulletForm), 'Bullet saved.'); setBulletForm(emptyBullet); setEditingBullet(null) }}><h2>Bullet variants</h2>{selected.bullet_variants.map((bullet) => <button type="button" className="subrecord" key={bullet.id} onClick={() => chooseBullet(bullet)}>{bullet.text} {bullet.approved_at ? '✓ Approved' : ''}</button>)}<label>Wording<textarea required value={bulletForm.text} onChange={(event) => setBulletForm({ ...bulletForm, text: event.target.value })} /></label><label>Tone<input value={bulletForm.tone} onChange={(event) => setBulletForm({ ...bulletForm, tone: event.target.value })} placeholder="Concise" /></label><label className="inline-check"><input type="checkbox" checked={bulletForm.approved} onChange={(event) => setBulletForm({ ...bulletForm, approved: event.target.checked })} />Approve this bullet</label><p className="hint">Approval requires verified evidence. Editing the evidence or metric removes approval.</p><div className="actions"><button disabled={busy}>{editingBullet ? 'Update bullet' : 'Add bullet'}</button>{editingBullet && <button type="button" className="secondary" onClick={() => { setEditingBullet(null); setBulletForm(emptyBullet) }}>Cancel edit</button>}{editingBullet && <button type="button" className="danger" disabled={busy} onClick={() => { if (window.confirm("Delete this bullet?")) { void run(() => api<void>(`/bullets/${editingBullet}`, { method: "DELETE" }), "Bullet deleted."); setEditingBullet(null); setBulletForm(emptyBullet) } }}>Delete bullet</button>}</div></form></>}</div></div>
 }
