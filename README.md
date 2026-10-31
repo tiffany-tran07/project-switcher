@@ -48,6 +48,8 @@ Use the sidebar to add experiences and projects, then create skills with optiona
 
 The Evidence editor blocks verification while claim/context/skill edits or unfinished metric/bullet forms are pending. Save or explicitly reset/clear the relevant form first. Failed metric/bullet saves and deletions preserve input and edit mode; failed archiving keeps the evidence selected. A newly saved evidence record is selected automatically. If a write succeeds but refreshing fails, the UI warns you to reload before retrying instead of reporting a clean success. These safeguards do not provide cross-page autosave—save work before leaving the page.
 
+Use **Archive** to search and recover archived experiences, projects, skills, or evidence. The view explains dependency order: restore linked experiences before projects, then linked projects before evidence. Restoration preserves the existing evidence state—it does not verify draft/rejected claims—and never rewrites saved resume snapshots or export files. Failed restore requests keep the archived record visible for retry.
+
 Search checks experiences, projects, skills, aliases, and evidence through SQLite FTS5. **Export JSON** downloads the complete career library, including archived records. The API schema is available at <http://127.0.0.1:8000/docs>.
 
 ## Job workspace
