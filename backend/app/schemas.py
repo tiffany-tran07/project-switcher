@@ -260,6 +260,13 @@ class RequirementMatchOut(BaseModel):
     matches: list[MatchedEvidence]
 
 
+class AnalysisOutcome(BaseModel):
+    requested_method: Literal["deterministic", "ollama"]
+    method_used: Literal["deterministic", "ollama", "preserved"]
+    fallback: bool
+    note: str
+
+
 class JobOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
@@ -270,6 +277,7 @@ class JobOut(BaseModel):
     source: str
     created_at: datetime
     requirements: list[RequirementOut]
+    analysis: AnalysisOutcome | None = None
 
 
 class Out(BaseModel):

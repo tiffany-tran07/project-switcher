@@ -25,7 +25,10 @@ export type Evidence = {
 }
 export type SearchResult = { type: 'experience' | 'project' | 'skill' | 'evidence'; id: string; title: string }
 export type Requirement = { id?: string; text: string; supporting_span?: string | null; normalized_term: string; kind: 'skill' | 'tool' | 'responsibility' | 'experience' | 'education' | 'certification'; priority: 'required' | 'preferred' | 'unclear'; confirmed: boolean }
-export type Job = { id: string; company: string; title: string; url: string; raw_description: string; source: string; created_at: string; requirements: Requirement[] }
+export type AnalysisOutcome = { requested_method: 'deterministic' | 'ollama'; method_used: 'deterministic' | 'ollama' | 'preserved'; fallback: boolean; note: string }
+export type LocalAIConfig = { endpoint: string | null; model: string; allowed: boolean; message: string }
+export type LocalAICheck = { runtime_available: boolean; model_available: boolean | null; message: string }
+export type Job = { id: string; company: string; title: string; url: string; raw_description: string; source: string; created_at: string; requirements: Requirement[]; analysis?: AnalysisOutcome | null }
 export type DraftValidation = { valid: boolean; issues: { evidence_id: string; position: number; code: 'duplicate' | 'unavailable_evidence' | 'section_context' | 'unsafe_wording'; message: string }[] }
 export type DashboardData = {
   today_utc: string

@@ -201,6 +201,75 @@ def test_ollama_fallback_and_invalid_span(
     result = job_client.post(f"/api/v1/jobs/{job['id']}/analyze?method=ollama")
     assert result.status_code == 200
     assert any(item["text"] == "Python" for item in result.json()["requirements"])
+    assert result.json()["analysis"]["fallback"] is True
+    assert result.json()["analysis"]["method_used"] == "deterministic"
+    assert result.json()["analysis"]["requested_method"] == "ollama"
+    assert "deterministic extraction was used" in result.json()["analysis"]["note"]
+
+
+def test_analysis_outcome_reports_actual_method(
+    job_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.schemas import RequirementData
+
+    job = job_client.post(
+        "/api/v1/jobs",
+        json={
+            "title": "Engineer",
+            "raw_description": "Python is required for services development.",
+        },
+    ).json()
+    url = f"/api/v1/jobs/{job['id']}/analyze"
+    deterministic = job_client.post(url).json()
+    assert deterministic["analysis"]["method_used"] == "deterministic"
+    assert deterministic["analysis"]["fallback"] is False
+    monkeypatch.setattr(
+        jobs,
+        "extract_with_ollama",
+        lambda _: [
+            RequirementData(text="Python", supporting_span="Python", normalized_term="python"),
+        ],
+    )
+    model = job_client.post(f"{url}?method=ollama").json()
+    assert model["analysis"]["method_used"] == "ollama"
+    assert model["analysis"]["fallback"] is False
+    assert model["requirements"][0]["confirmed"] is False
+    monkeypatch.setattr(jobs, "extract_with_ollama", lambda _: [])
+    empty = job_client.post(f"{url}?method=ollama").json()
+    assert empty["analysis"]["fallback"] is True
+    assert empty["analysis"]["method_used"] == "preserved"
+    assert "existing requirements were kept" in empty["analysis"]["note"]
+    assert empty["requirements"] == model["requirements"]
+    assert empty["raw_description"] == job["raw_description"]
+    assert job_client.get(f"/api/v1/jobs/{job['id']}").json()["analysis"] is None
+
+
+def test_failed_model_extraction_preserves_confirmed_edits(
+    job_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = job_client.post(
+        "/api/v1/jobs",
+        json={
+            "title": "Engineer",
+            "raw_description": "Experience using Python for data analysis.",
+        },
+    ).json()
+    path = f"/api/v1/jobs/{job['id']}/requirements"
+    rows = job_client.patch(
+        path, json={"requirements": [{"text": "Reviewed Python requirement"}]}
+    ).json()
+    reviewed = job_client.patch(
+        path, json={"requirements": [{**row, "confirmed": True} for row in rows]}
+    ).json()
+
+    def offline(_: str) -> list[object]:
+        raise OSError("offline")
+
+    monkeypatch.setattr(jobs, "extract_with_ollama", offline)
+    response = job_client.post(f"/api/v1/jobs/{job['id']}/analyze?method=ollama&force=true").json()
+    assert response["analysis"]["method_used"] == "preserved"
+    assert response["requirements"] == reviewed
+    assert job_client.get(path).json() == reviewed
 
 
 def test_ollama_rejects_unsupported_output(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -233,7 +302,9 @@ def test_ollama_rejects_unsupported_output(monkeypatch: pytest.MonkeyPatch) -> N
             return json.dumps({"message": {"content": json.dumps(output)}}).encode()
 
     monkeypatch.setattr(settings, "ollama_chat_model", "local-model")
-    monkeypatch.setattr(job_analysis, "urlopen", lambda *_args, **_kwargs: FakeResponse())
+    monkeypatch.setattr(
+        job_analysis, "ollama_json", lambda *_args, **_kwargs: json.loads(FakeResponse().read())
+    )
     rows = job_analysis.extract_with_ollama("Python is required.")
     assert [row.text for row in rows] == ["Python"]
 

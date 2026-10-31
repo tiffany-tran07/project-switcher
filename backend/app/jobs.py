@@ -1,5 +1,5 @@
 import re
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -9,6 +9,7 @@ from app.job_analysis import extract_with_ollama
 from app.library import get_session
 from app.models import EvidenceItem, Job, JobRequirement, Project, Skill
 from app.schemas import (
+    AnalysisOutcome,
     JobCreate,
     JobOut,
     JobPatch,
@@ -152,7 +153,7 @@ def get_job(job_id: str, session: DB = Depends(get_session)) -> JobOut:
 @router.post("/jobs/{job_id}/analyze", response_model=JobOut)
 def analyze_job(
     job_id: str,
-    method: str = Query(default="deterministic", pattern="^(deterministic|ollama)$"),
+    method: Literal["deterministic", "ollama"] = Query(default="deterministic"),
     force: bool = False,
     session: DB = Depends(get_session),
 ) -> JobOut:
@@ -164,21 +165,43 @@ def analyze_job(
     if not force and any(requirement.confirmed for requirement in job.requirements):
         raise HTTPException(409, "Re-extraction replaces reviewed requirements; set force=true")
     requirements = extract_requirements(job.raw_description)
+    outcome = AnalysisOutcome(
+        requested_method=method,
+        method_used="deterministic",
+        fallback=method == "ollama",
+        note="Deterministic extraction; no model call was made.",
+    )
     if method == "ollama":
         try:
             model_requirements = extract_with_ollama(job.raw_description)
             if model_requirements:
                 requirements = model_requirements
+                outcome.method_used = "ollama"
+                outcome.fallback = False
+                outcome.note = (
+                    "Local Ollama returned cited requirements. Review them before confirmation."
+                )
+            else:
+                outcome.note = "No valid cited requirements; deterministic extraction was used."
         except (OSError, ValueError, KeyError, TypeError):
-            # No local model, invalid response, or timeout: keep the offline workflow usable.
-            pass
+            outcome.note = "Local analysis unavailable; deterministic extraction was used."
+    if outcome.fallback and job.requirements:
+        outcome.method_used = "preserved"
+        outcome.note = (
+            "Local analysis failed validation or was unavailable; existing requirements were kept."
+        )
+        result = job_out(job)
+        result.analysis = outcome
+        return result
     job.requirements = [
         JobRequirement(**item.model_dump(exclude={"id"}), position=index)
         for index, item in enumerate(requirements)
     ]
     session.commit()
     session.refresh(job)
-    return job_out(job)
+    result = job_out(job)
+    result.analysis = outcome
+    return result
 
 
 @router.patch("/jobs/{job_id}", response_model=JobOut)

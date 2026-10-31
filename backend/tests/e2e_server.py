@@ -13,7 +13,7 @@ def main() -> None:
     with TemporaryDirectory(prefix="resume-e2e-") as temporary:
         os.environ["DATA_DIR"] = temporary
         os.environ["DATABASE_URL"] = f"sqlite:///{Path(temporary) / 'e2e.db'}"
-        os.environ["OLLAMA_BASE_URL"] = "http://127.0.0.1:11434"
+        os.environ["OLLAMA_BASE_URL"] = "http://127.0.0.1:1"  # Never use a real Ollama instance.
         os.environ["OLLAMA_CHAT_MODEL"] = ""
         # Settings and database modules must only be imported AFTER the isolation overrides.
         import uvicorn

@@ -1,12 +1,9 @@
 """Optional local-only Ollama extraction; deterministic extraction lives in jobs.py."""
 
-import json
-from urllib.parse import urlparse
-from urllib.request import Request, urlopen
-
 from pydantic import BaseModel, Field, ValidationError
 
 from app.config import settings
+from app.local_ai import ollama_json
 from app.schemas import RequirementData
 
 
@@ -22,12 +19,9 @@ class ExtractedResponse(BaseModel):
 
 
 def extract_with_ollama(description: str) -> list[RequirementData]:
-    endpoint = urlparse(settings.ollama_base_url)
-    if endpoint.scheme != "http" or endpoint.hostname not in {"127.0.0.1", "localhost"}:
-        raise ValueError("Ollama must use a localhost HTTP endpoint")
     if not settings.ollama_chat_model:
         raise ValueError("Set OLLAMA_CHAT_MODEL to an installed local model")
-    payload = {
+    payload: dict[str, object] = {
         "model": settings.ollama_chat_model,
         "stream": False,
         "format": ExtractedResponse.model_json_schema(),
@@ -44,14 +38,7 @@ def extract_with_ollama(description: str) -> list[RequirementData]:
             {"role": "user", "content": description},
         ],
     }
-    request = Request(
-        f"{settings.ollama_base_url.rstrip('/')}/api/chat",
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urlopen(request, timeout=20) as response:  # noqa: S310 - localhost URL validated above
-        body = json.load(response)
+    body = ollama_json("/api/chat", payload)
     parsed = ExtractedResponse.model_validate_json(body["message"]["content"])
     requirements: list[RequirementData] = []
     for item in parsed.requirements[:100]:
