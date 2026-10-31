@@ -1,5 +1,19 @@
 export type Heading = 'Experience' | 'Projects' | 'Selected evidence'
 export const defaultHeadingOrder: Heading[] = ['Experience', 'Projects', 'Selected evidence']
+export type WorkingResumeDraft = {
+  selected: string[]; headingOrder: Heading[]; headings: Record<string, Heading>; wording: Record<string, string>
+}
+export type WorkingDraftUpdate = (current: WorkingResumeDraft) => WorkingResumeDraft
+export type WorkingDrafts = Record<string, WorkingResumeDraft>
+
+export function emptyWorkingDraft(): WorkingResumeDraft {
+  return { selected: [], headingOrder: [...defaultHeadingOrder], headings: {}, wording: {} }
+}
+
+export function updateWorkingDraft(drafts: WorkingDrafts, resumeId: string, update: WorkingDraftUpdate): WorkingDrafts {
+  if (!resumeId) return drafts
+  return { ...drafts, [resumeId]: update(drafts[resumeId] ?? emptyWorkingDraft()) }
+}
 
 export function buildSections(
   order: Heading[], selected: string[], headings: Record<string, Heading>, wording: Record<string, string>,
