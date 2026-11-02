@@ -63,6 +63,13 @@ export default function App() {
     finally { setBusy(false) }
   }
 
+  async function refreshLibrary() {
+    setBusy(true); setError(''); setNotice('')
+    try { await load(); setNotice('Library refreshed.') }
+    catch (cause) { setError(`Could not refresh the career library. ${cause instanceof Error ? cause.message : String(cause)}`) }
+    finally { setBusy(false) }
+  }
+
   async function search(event: FormEvent) {
     event.preventDefault(); setError('')
     if (!query.trim()) { setResults(null); return }
@@ -110,7 +117,7 @@ export default function App() {
         {section === 'experiences' && <ExperienceEditor rows={experiences} selectedId={selectedId} busy={busy} onSelect={setSelectedId} onSave={(id, data) => run(() => save(id ? `/experiences/${id}` : '/experiences', id ? 'PATCH' : 'POST', data), 'Experience saved.')} onArchive={(id) => run(() => save(`/experiences/${id}`, 'PATCH', { archived: true }), 'Experience archived.')} />}
         {section === 'projects' && <ProjectEditor rows={projects} experiences={experiences} selectedId={selectedId} busy={busy} onSelect={setSelectedId} onSave={(id, data) => run(() => save(id ? `/projects/${id}` : '/projects', id ? 'PATCH' : 'POST', data), 'Project saved.')} onArchive={(id) => run(() => save(`/projects/${id}`, 'PATCH', { archived: true }), 'Project archived.')} />}
         {section === 'skills' && <SkillEditor rows={skills} selectedId={selectedId} busy={busy} onSelect={setSelectedId} onSave={(id, data) => run(() => save(id ? `/skills/${id}` : '/skills', id ? 'PATCH' : 'POST', data), 'Skill saved.')} onArchive={(id) => run(() => save(`/skills/${id}`, 'PATCH', { archived: true }), 'Skill archived.')} />}
-        {section === 'evidence' && <EvidenceEditor rows={evidence} experiences={experiences} projects={projects} skills={skills} selectedId={selectedId} busy={busy} onSelect={setSelectedId} run={run} />}
+        {section === 'evidence' && <EvidenceEditor rows={evidence} experiences={experiences} projects={projects} skills={skills} selectedId={selectedId} busy={busy} onSelect={setSelectedId} run={run} onRefresh={() => { void refreshLibrary() }} onOpenArchive={() => { setSection('archive'); setSelectedId(null); setError(''); setNotice('') }} />}
         </>}
       </main>
     </div>

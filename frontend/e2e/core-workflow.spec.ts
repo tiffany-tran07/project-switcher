@@ -357,7 +357,35 @@ test('reviewed resume intake → verified source → approved export → tracked
   await page.getByRole('main').getByRole('button', { name: 'Archive', exact: true }).click()
   await expect(page.getByRole('status')).toHaveText('Evidence archived.')
   expect((await (await page.request.get(`${api}/evidence`)).json()).some((row: { id: string }) => row.id === imported[0].id)).toBe(false)
-  await navigate(page, 'Archive')
+  await navigate(page, 'Resumes')
+  await page.route(`${api}/evidence/${imported[0].id}`, (route) => route.fulfill({
+    status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Source lookup temporarily unavailable' }),
+  }))
+  await page.getByRole('button', { name: claim, exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Source lookup temporarily unavailable')
+  await expect(page.getByRole('heading', { name: 'New evidence', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Save evidence', exact: true })).toHaveCount(0)
+  await page.unroute(`${api}/evidence/${imported[0].id}`)
+  await page.getByRole('button', { name: 'Retry source lookup', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Archived evidence source', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Evidence source lookup', exact: true })).toContainText('Current library record—not the historical snapshot')
+  await page.route(`${api}/profile`, (route) => route.fulfill({
+    status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Library refresh temporarily unavailable' }),
+  }), { times: 1 })
+  await page.getByRole('button', { name: 'Refresh career library', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Could not refresh the career library.')
+  await expect(page.getByRole('alert')).not.toContainText('Saved,')
+  // A source restored elsewhere becomes editable only after refreshing the active library.
+  expect((await page.request.patch(`${api}/evidence/${imported[0].id}`, { data: { archived: false } })).status()).toBe(200)
+  await page.getByRole('button', { name: 'Refresh career library', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Edit evidence', exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Claim', exact: true })).toHaveValue(claim)
+  await page.getByRole('main').getByRole('button', { name: 'Archive', exact: true }).click()
+  await expect(page.getByRole('status')).toHaveText('Evidence archived.')
+  await navigate(page, 'Resumes')
+  await page.getByRole('button', { name: claim, exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Archived evidence source', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Open Archive', exact: true }).click()
   const archivedRecord = page.getByRole('article', { name: `Archived evidence: ${claim}`, exact: true })
   await expect(archivedRecord).toBeVisible()
   await page.route(`${api}/evidence/${imported[0].id}`, (route) => route.fulfill({

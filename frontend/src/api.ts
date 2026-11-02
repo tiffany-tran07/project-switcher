@@ -79,6 +79,10 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   return response.json() as Promise<T>
 }
 
+export function loadEvidenceSource(id: string): Promise<Evidence> {
+  return api<Evidence>(`/evidence/${encodeURIComponent(id)}`)
+}
+
 export type ResumeIntakePreview = { filename: string; format: string; text: string; warnings: string[] }
 
 export async function previewResume(file: File, signal?: AbortSignal): Promise<ResumeIntakePreview> {

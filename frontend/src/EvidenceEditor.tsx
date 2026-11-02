@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api, save, type Bullet, type Evidence, type Experience, type Metric, type Project, type Skill } from './api'
 import EvidenceAttachments from './EvidenceAttachments'
+import EvidenceSourceLookup from './EvidenceSourceLookup'
 import { evidenceForm, hasEvidenceEdits } from './evidenceEditing'
 
 const emptyMetric = { name: '', value: '', unit: '', context: '', source_note: '' }
@@ -8,10 +9,11 @@ const emptyBullet = { text: '', tone: '', approved: false }
 type Props = {
   rows: Evidence[]; experiences: Experience[]; projects: Project[]; skills: Skill[]
   selectedId: string | null; busy: boolean; onSelect: (id: string | null) => void
+  onRefresh: () => void; onOpenArchive: () => void
   run: (action: () => Promise<unknown>, message: string) => Promise<boolean>
 }
 
-export default function EvidenceEditor({ rows, experiences, projects, skills, selectedId, busy: saving, onSelect, run }: Props) {
+export default function EvidenceEditor({ rows, experiences, projects, skills, selectedId, busy: saving, onSelect, run, onRefresh, onOpenArchive }: Props) {
   const selected = rows.find((row) => row.id === selectedId)
   const [form, setForm] = useState(() => evidenceForm(selected))
   const [metricForm, setMetricForm] = useState(emptyMetric)
@@ -109,6 +111,7 @@ export default function EvidenceEditor({ rows, experiences, projects, skills, se
       {rows.length ? rows.map((row) => <button disabled={busy} key={row.id} className={selectedId === row.id ? 'selected' : ''} onClick={() => selectRecord(row.id)}>{row.claim} · {row.state}</button>) : <p className="empty">Nothing here yet. Add your first record.</p>}
     </section>
     <div className="editor-stack">
+      {selectedId && !selected ? <EvidenceSourceLookup key={selectedId} evidenceId={selectedId} busy={busy} onRefresh={onRefresh} onOpenArchive={onOpenArchive} /> : <>
       <form className="editor-card" onSubmit={(event) => { void saveEvidence(event) }}>
         <div className="editor-title"><h2>{selected ? 'Edit evidence' : 'New evidence'}</h2>{selected && <span className={`badge ${selected.state}`}>{selected.state}</span>}</div>
         <fieldset className="evidence-fields" disabled={busy}>
@@ -158,6 +161,7 @@ export default function EvidenceEditor({ rows, experiences, projects, skills, se
             {editingBullet && <button type="button" className="danger" disabled={busy || dirty || pendingMetric} onClick={() => { void deleteBullet() }}>Delete bullet</button>}
           </div>
         </form>
+      </>}
       </>}
     </div>
   </div>

@@ -23,6 +23,8 @@ The Archive view now supports searching and restoring career records, with depen
 
 Supporting source files can now be explicitly uploaded to saved evidence. Uploads remain local, clear verification and bullet approvals, and preserve selected files after failed requests. New snapshots capture immutable file references; downloads, new snapshot validation, backup, and clean-directory restore check file integrity. This is separate from transient Intake previews. **Existing installations need `alembic upgrade head` before using the new registry.** Migration/schema checks used a disposable database; existing user data was not migrated during this increment.
 
+Historical source links now handle archived, missing, and uncached evidence without presenting a new-record form. The source lookup is read-only, clearly separates current library content from saved snapshot content, and offers retry, library refresh, and Archive navigation. Browser coverage includes lookup/refresh failures and a source restored outside the current view. No schema or evidence-policy change in this increment.
+
 ## Next acceptance checks
 
 1. Exercise Intake and the evidence workflow with a real, user-reviewed resume. DOCX and UTF-8 text are supported; PDF input currently requires pasted text.
