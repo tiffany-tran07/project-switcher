@@ -409,3 +409,82 @@ test('reviewed resume intake → verified source → approved export → tracked
   expect(errors).toEqual([])
   expect(blockedRequests).toEqual([])
 })
+
+test('career record saves select their records and failed writes retain form state', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.goto('/')
+  await expect(page.getByText('Loading workspace overview…')).toBeHidden()
+  const cases = [
+    { section: 'Experiences', collection: 'experiences', singular: 'experience', primary: 'Organization', key: 'organization', initial: 'Career editing employer', fields: { Title: 'Fixture role', Description: 'Fictional role notes' } },
+    { section: 'Projects', collection: 'projects', singular: 'project', primary: 'Name', key: 'name', initial: 'Career editing project', fields: { Summary: 'Fictional project notes' } },
+    { section: 'Skills', collection: 'skills', singular: 'skill', primary: 'Name', key: 'name', initial: 'Career editing skill', fields: { Category: 'Tools', 'Aliases, separated by commas': 'editor alias' } },
+  ]
+  for (const entry of cases) {
+    await test.step(entry.section, async () => {
+      await navigate(page, entry.section)
+      const endpoint = `${api}/${entry.collection}`
+      const before = await (await page.request.get(endpoint)).json()
+      const primary = page.getByLabel(entry.primary, { exact: true })
+      await primary.fill(entry.initial)
+      for (const [label, value] of Object.entries(entry.fields)) await page.getByLabel(label, { exact: true }).fill(value)
+      let release = () => {}
+      let started = () => {}
+      const gate = new Promise<void>((resolve) => { release = resolve })
+      const pending = new Promise<void>((resolve) => { started = resolve })
+      await page.route(endpoint, async (route) => {
+        if (route.request().method() !== 'POST') return route.fallback()
+        started()
+        await gate
+        await route.continue()
+      })
+      const saveButton = page.getByRole('button', { name: `Save ${entry.singular}`, exact: true })
+      await saveButton.click()
+      await pending
+      try {
+        await expect(primary).toBeDisabled()
+        await expect(saveButton).toBeDisabled()
+        await expect(page.getByRole('button', { name: '+ New', exact: true })).toBeDisabled()
+        await expect(page.getByRole('navigation').getByRole('button', { name: 'Jobs', exact: true })).toBeDisabled()
+        await expect(page.getByRole('textbox', { name: 'Search library', exact: true })).toBeDisabled()
+      } finally { release() }
+      await expect(page.getByRole('heading', { name: `Edit ${entry.singular}`, exact: true })).toBeVisible()
+      await page.unroute(endpoint)
+      const rows: { id: string; [key: string]: unknown }[] = await (await page.request.get(endpoint)).json()
+      const created = rows.filter((row) => row[entry.key] === entry.initial)
+      expect(created).toHaveLength(1)
+      expect(rows).toHaveLength(before.length + 1)
+      const saved = created[0]
+      await saveButton.click()
+      await expect(page.getByRole('status')).toHaveText(`${entry.singular[0].toUpperCase()}${entry.singular.slice(1)} saved.`)
+      expect(await (await page.request.get(endpoint)).json()).toHaveLength(before.length + 1)
+      const updated = `${entry.initial} updated`
+      await primary.fill(updated)
+      await page.route(`${endpoint}/${saved.id}`, (route) => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Record save failed; retry safely' }) }), { times: 1 })
+      await saveButton.click()
+      await expect(page.getByRole('alert')).toContainText('Record save failed')
+      await expect(primary).toHaveValue(updated)
+      await expect(page.getByRole('heading', { name: `Edit ${entry.singular}`, exact: true })).toBeVisible()
+      expect((await (await page.request.get(`${endpoint}/${saved.id}`)).json())[entry.key]).toBe(entry.initial)
+      await saveButton.click()
+      await expect(page.getByRole('status')).toContainText('saved.')
+      expect((await (await page.request.get(`${endpoint}/${saved.id}`)).json())[entry.key]).toBe(updated)
+      await primary.fill(`${updated} unsaved`)
+      await page.route(`${endpoint}/${saved.id}`, (route) => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Record archive failed; retry safely' }) }), { times: 1 })
+      const archive = page.getByRole('main').getByRole('button', { name: 'Archive', exact: true })
+      await archive.click()
+      await expect(page.getByRole('alert')).toContainText('Record archive failed')
+      await expect(page.getByRole('heading', { name: `Edit ${entry.singular}`, exact: true })).toBeVisible()
+      await expect(primary).toHaveValue(`${updated} unsaved`)
+      expect((await (await page.request.get(`${endpoint}/${saved.id}`)).json()).archived_at).toBeNull()
+      await archive.click()
+      await expect(page.getByRole('heading', { name: `New ${entry.singular}`, exact: true })).toBeVisible()
+      await expect(primary).toHaveValue('')
+      const archived = await (await page.request.get(`${endpoint}/${saved.id}`)).json()
+      expect(archived.archived_at).not.toBeNull()
+      expect(archived[entry.key]).toBe(updated)
+      expect(await (await page.request.get(endpoint)).json()).toHaveLength(before.length)
+    })
+  }
+  expect(errors).toEqual([])
+})

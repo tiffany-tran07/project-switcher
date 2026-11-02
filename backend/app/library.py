@@ -177,7 +177,10 @@ def set_aliases(row: Skill, aliases: list[str]) -> None:
     clean = [alias.strip() for alias in aliases]
     if canonical(row.name) in {canonical(alias) for alias in clean}:
         raise HTTPException(422, "An alias cannot equal the skill name")
-    row.aliases = [SkillAlias(alias=alias) for alias in clean]
+    existing = {item.alias: item for item in row.aliases}
+    row.aliases = [
+        existing[alias] if alias in existing else SkillAlias(alias=alias) for alias in clean
+    ]
 
 
 @router.get("/profile", response_model=ProfileData)
@@ -321,17 +324,19 @@ def get_skill(record_id: str, session: DB = Depends(get_session)) -> SkillOut:
 @router.patch("/skills/{record_id}", response_model=SkillOut)
 def patch_skill(record_id: str, data: SkillPatch, session: DB = Depends(get_session)) -> SkillOut:
     row: Skill = require(session, Skill, record_id)
-    values = data.model_dump(exclude_unset=True, exclude={"archived", "aliases"})
-    if "name" in values:
-        row.name = clean_required(values.pop("name"), "Skill name")
-        row.canonical_name = canonical(row.name)
-    for field, value in values.items():
-        setattr(row, field, value)
-    if data.aliases is not None:
-        set_aliases(row, data.aliases)
-    set_archive(row, data.archived)
-    if data.name is not None:
-        demote_for_context(session, row.evidence_items)
+    # Relationship reads must not flush partial edits outside commit's conflict handling.
+    with session.no_autoflush:
+        values = data.model_dump(exclude_unset=True, exclude={"archived", "aliases"})
+        if "name" in values:
+            row.name = clean_required(values.pop("name"), "Skill name")
+            row.canonical_name = canonical(row.name)
+        for field, value in values.items():
+            setattr(row, field, value)
+        if data.aliases is not None:
+            set_aliases(row, data.aliases)
+        set_archive(row, data.archived)
+        if data.name is not None:
+            demote_for_context(session, row.evidence_items)
     commit(session)
     return skill_out(row)
 

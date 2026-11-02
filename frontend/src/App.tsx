@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import ResumeWorkspace from './ResumeWorkspace'
 import EvidenceEditor from './EvidenceEditor'
+import { ExperienceEditor, ProjectEditor, SkillEditor } from './CareerEditors'
 import ArchiveWorkspace from './ArchiveWorkspace'
 import ApplicationsWorkspace from './ApplicationsWorkspace'
 import BackupSettings from './BackupSettings'
@@ -13,13 +14,6 @@ import { api, API_ROOT, save, type Evidence, type Experience, type Job, type Pro
 
 type Section = 'evidence' | 'experiences' | 'projects' | 'skills' | 'profile' | 'jobs' | 'resumes' | 'applications' | 'settings' | 'dashboard' | 'intake' | 'archive'
 const emptyProfile: Profile = { name: '', email: '', phone: '', location: '', links: [] }
-const emptyExperience = { organization: '', title: '', start_date: '', end_date: '', location: '', description: '' }
-const emptyProject = { experience_id: '', name: '', summary: '', start_date: '', end_date: '', url: '' }
-const emptySkill = { name: '', category: '', aliases: '' }
-
-function dateValue(value: string | null | undefined) { return value ?? '' }
-function toNullableDate(value: string) { return value || null }
-function labelForExperience(row: Experience) { return `${row.title} · ${row.organization}` }
 
 export default function App() {
   const [section, setSection] = useState<Section>('dashboard')
@@ -63,6 +57,14 @@ export default function App() {
     finally { setBusy(false) }
   }
 
+  async function saveCareerRecord(collection: 'experiences' | 'projects' | 'skills', id: string | null, data: unknown, message: string): Promise<string | null> {
+    let saved: { id: string } | undefined
+    const success = await run(async () => {
+      saved = await save<{ id: string }>(id ? `/${collection}/${encodeURIComponent(id)}` : `/${collection}`, id ? 'PATCH' : 'POST', data)
+    }, message)
+    return success && saved ? saved.id : null
+  }
+
   async function refreshLibrary() {
     setBusy(true); setError(''); setNotice('')
     try { await load(); setNotice('Library refreshed.') }
@@ -91,7 +93,7 @@ export default function App() {
         <nav aria-label="Main navigation">
           <span className="nav-heading">CAREER LIBRARY</span>
           {(['dashboard', 'intake', 'evidence', 'experiences', 'projects', 'skills', 'archive', 'jobs', 'resumes', 'applications', 'profile', 'settings'] as Section[]).map((item) =>
-            <button key={item} className={section === item ? 'active' : ''} onClick={() => { setSection(item); setSelectedId(null); setError(''); setNotice('') }}>{item[0].toUpperCase() + item.slice(1)}</button>,
+            <button key={item} disabled={busy} className={section === item ? 'active' : ''} onClick={() => { setSection(item); setSelectedId(null); setError(''); setNotice('') }}>{item[0].toUpperCase() + item.slice(1)}</button>,
           )}
         </nav>
         <div className="sidebar-footer">Your records stay on this computer.</div>
@@ -105,18 +107,18 @@ export default function App() {
         {section === 'archive' ? <ArchiveWorkspace onRestored={load} /> : section === 'intake' ? <ResumeIntake experiences={experiences} projects={projects} onExperienceCreated={(row) => setExperiences((current) => [row, ...current.filter((item) => item.id !== row.id)])} onProjectCreated={(row) => setProjects((current) => [row, ...current.filter((item) => item.id !== row.id)])} onDraftSaved={(row) => setEvidence((current) => [row, ...current.filter((item) => item.id !== row.id)])} onOpenEvidence={(id) => { setSelectedId(id); setSection('evidence') }} /> : section === 'dashboard' ? <Dashboard onOpen={(destination, id) => { setSection(destination); setSelectedId(id ?? null); if (destination === 'resumes' && id) setLastResumeId(id) }} /> : section === 'settings' ? <div className="editor-stack"><LocalAISettings /><BackupSettings /></div> : section === 'applications' ? <ApplicationsWorkspace initialApplicationId={selectedId ?? undefined} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : section === 'resumes' ? <ResumeWorkspace initialResumeId={selectedId ?? lastResumeId ?? undefined} workingDrafts={workingResumeDrafts} onWorkingDraftChange={(id, update) => setWorkingResumeDrafts((current) => updateWorkingDraft(current, id, update))} onResumeSelect={(id) => { setLastResumeId(id || null); setSelectedId(id || null) }} evidence={evidence} projects={projects} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : section === 'jobs' ? <JobsWorkspace initialJobId={selectedId ?? undefined} evidence={evidence} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : <>
         <div className="toolbar">
           <form onSubmit={search} className="search-form">
-            <input aria-label="Search library" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search work, skills, and evidence" />
-            <button type="submit">Search</button>
+            <input aria-label="Search library" disabled={busy} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search work, skills, and evidence" />
+            <button type="submit" disabled={busy}>Search</button>
           </form>
           <a className="button secondary" href={`${API_ROOT}/library/export`} download="career-library.json">Export JSON</a>
         </div>
-        {results && <div className="search-results"><h2>Search results</h2>{results.length ? results.map((result) => <button key={`${result.type}-${result.id}`} onClick={() => selectResult(result)}><span>{result.type}</span>{result.title}</button>) : <p>No matches found.</p>}</div>}
+        {results && <div className="search-results"><h2>Search results</h2>{results.length ? results.map((result) => <button key={`${result.type}-${result.id}`} disabled={busy} onClick={() => selectResult(result)}><span>{result.type}</span>{result.title}</button>) : <p>No matches found.</p>}</div>}
         {error && <div className="message error" role="alert">{error}</div>}
         {notice && <div className="message success" role="status">{notice}</div>}
         {section === 'profile' && <ProfileEditor profile={profile} busy={busy} onSave={(data) => run(() => save('/profile', 'PUT', data), 'Profile saved.')} />}
-        {section === 'experiences' && <ExperienceEditor rows={experiences} selectedId={selectedId} busy={busy} onSelect={setSelectedId} onSave={(id, data) => run(() => save(id ? `/experiences/${id}` : '/experiences', id ? 'PATCH' : 'POST', data), 'Experience saved.')} onArchive={(id) => run(() => save(`/experiences/${id}`, 'PATCH', { archived: true }), 'Experience archived.')} />}
-        {section === 'projects' && <ProjectEditor rows={projects} experiences={experiences} selectedId={selectedId} busy={busy} onSelect={setSelectedId} onSave={(id, data) => run(() => save(id ? `/projects/${id}` : '/projects', id ? 'PATCH' : 'POST', data), 'Project saved.')} onArchive={(id) => run(() => save(`/projects/${id}`, 'PATCH', { archived: true }), 'Project archived.')} />}
-        {section === 'skills' && <SkillEditor rows={skills} selectedId={selectedId} busy={busy} onSelect={setSelectedId} onSave={(id, data) => run(() => save(id ? `/skills/${id}` : '/skills', id ? 'PATCH' : 'POST', data), 'Skill saved.')} onArchive={(id) => run(() => save(`/skills/${id}`, 'PATCH', { archived: true }), 'Skill archived.')} />}
+        {section === 'experiences' && <ExperienceEditor rows={experiences} selectedId={selectedId} busy={busy} onSelect={setSelectedId} onSave={(id, data) => saveCareerRecord('experiences', id, data, 'Experience saved.')} onArchive={(id) => run(() => save(`/experiences/${id}`, 'PATCH', { archived: true }), 'Experience archived.')} />}
+        {section === 'projects' && <ProjectEditor rows={projects} experiences={experiences} selectedId={selectedId} busy={busy} onSelect={setSelectedId} onSave={(id, data) => saveCareerRecord('projects', id, data, 'Project saved.')} onArchive={(id) => run(() => save(`/projects/${id}`, 'PATCH', { archived: true }), 'Project archived.')} />}
+        {section === 'skills' && <SkillEditor rows={skills} selectedId={selectedId} busy={busy} onSelect={setSelectedId} onSave={(id, data) => saveCareerRecord('skills', id, data, 'Skill saved.')} onArchive={(id) => run(() => save(`/skills/${id}`, 'PATCH', { archived: true }), 'Skill archived.')} />}
         {section === 'evidence' && <EvidenceEditor rows={evidence} experiences={experiences} projects={projects} skills={skills} selectedId={selectedId} busy={busy} onSelect={setSelectedId} run={run} onRefresh={() => { void refreshLibrary() }} onOpenArchive={() => { setSection('archive'); setSelectedId(null); setError(''); setNotice('') }} />}
         </>}
       </main>
@@ -195,34 +197,8 @@ function JobDescriptionEditor({ job, onSave }: { job: Job; onSave: (changes: { c
   return <details><summary>Original job description and posting details</summary><form className="description-form" onSubmit={(event) => { event.preventDefault(); setError(''); setSaved(false); onSave(form).then(() => setSaved(true)).catch((cause) => setError(String(cause))) }}><div className="form-grid"><label>Company<input value={form.company} onChange={(event) => setForm({ ...form, company: event.target.value })} /></label><label>Role title<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label></div><label>Posting URL<input type="url" value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} /></label><div><strong>Original description (preserved)</strong><p className="job-description">{job.raw_description}</p></div><p className="hint">To change the posting text, save a new job. You can edit extracted requirements below.</p><button>Save posting</button>{error && <span role="alert">{error}</span>}{saved && <span role="status">Posting saved.</span>}</form></details>
 }
 
-type SaveHandler = (id: string | null, data: unknown) => void
-function RecordList({ title, rows, selectedId, onSelect, render }: { title: string; rows: { id: string }[]; selectedId: string | null; onSelect: (id: string | null) => void; render: (row: never) => string }) {
-  return <div className="record-list"><div className="list-heading"><h2>{title}</h2><button onClick={() => onSelect(null)}>+ New</button></div>{rows.length ? rows.map((row) => <button key={row.id} className={selectedId === row.id ? 'selected' : ''} onClick={() => onSelect(row.id)}>{render(row as never)}</button>) : <p className="empty">Nothing here yet. Add your first record.</p>}</div>
-}
-
 function ProfileEditor({ profile, busy, onSave }: { profile: Profile; busy: boolean; onSave: (data: Profile) => void }) {
   const [form, setForm] = useState(profile)
   useEffect(() => setForm(profile), [profile])
   return <div className="editor-only"><form className="editor-card" onSubmit={(event) => { event.preventDefault(); onSave(form) }}><h2>Contact profile</h2><div className="form-grid"><label>Name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label><label>Phone<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label>Location<input value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} /></label></div><label>Links, one per line<textarea value={form.links.join('\n')} onChange={(event) => setForm({ ...form, links: event.target.value.split('\n').filter(Boolean) })} /></label><button disabled={busy}>Save profile</button></form></div>
-}
-
-function ExperienceEditor({ rows, selectedId, busy, onSelect, onSave, onArchive }: { rows: Experience[]; selectedId: string | null; busy: boolean; onSelect: (id: string | null) => void; onSave: SaveHandler; onArchive: (id: string) => void }) {
-  const selected = rows.find((row) => row.id === selectedId)
-  const [form, setForm] = useState(emptyExperience)
-  useEffect(() => setForm(selected ? { organization: selected.organization, title: selected.title, start_date: dateValue(selected.start_date), end_date: dateValue(selected.end_date), location: selected.location, description: selected.description } : emptyExperience), [selected])
-  return <div className="workspace"><RecordList title="Experiences" rows={rows} selectedId={selectedId} onSelect={onSelect} render={(row: Experience) => labelForExperience(row)} /><form className="editor-card" onSubmit={(event) => { event.preventDefault(); onSave(selectedId, { ...form, start_date: toNullableDate(form.start_date), end_date: toNullableDate(form.end_date) }) }}><h2>{selected ? 'Edit experience' : 'New experience'}</h2><div className="form-grid"><label>Organization<input required value={form.organization} onChange={(event) => setForm({ ...form, organization: event.target.value })} /></label><label>Title<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label><label>Start date<input type="date" value={form.start_date} onChange={(event) => setForm({ ...form, start_date: event.target.value })} /></label><label>End date<input type="date" value={form.end_date} onChange={(event) => setForm({ ...form, end_date: event.target.value })} /></label><label>Location<input value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} /></label></div><label>Description<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label><div className="actions"><button disabled={busy}>Save experience</button>{selected && <button type="button" className="danger" disabled={busy} onClick={() => { onArchive(selected.id); onSelect(null) }}>Archive</button>}</div></form></div>
-}
-
-function ProjectEditor({ rows, experiences, selectedId, busy, onSelect, onSave, onArchive }: { rows: Project[]; experiences: Experience[]; selectedId: string | null; busy: boolean; onSelect: (id: string | null) => void; onSave: SaveHandler; onArchive: (id: string) => void }) {
-  const selected = rows.find((row) => row.id === selectedId)
-  const [form, setForm] = useState(emptyProject)
-  useEffect(() => setForm(selected ? { experience_id: selected.experience_id ?? '', name: selected.name, summary: selected.summary, start_date: dateValue(selected.start_date), end_date: dateValue(selected.end_date), url: selected.url } : emptyProject), [selected])
-  return <div className="workspace"><RecordList title="Projects" rows={rows} selectedId={selectedId} onSelect={onSelect} render={(row: Project) => row.name} /><form className="editor-card" onSubmit={(event) => { event.preventDefault(); onSave(selectedId, { ...form, experience_id: form.experience_id || null, start_date: toNullableDate(form.start_date), end_date: toNullableDate(form.end_date) }) }}><h2>{selected ? 'Edit project' : 'New project'}</h2><label>Name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Linked experience<select value={form.experience_id} onChange={(event) => setForm({ ...form, experience_id: event.target.value })}><option value="">Independent project</option>{experiences.map((row) => <option key={row.id} value={row.id}>{labelForExperience(row)}</option>)}</select></label><div className="form-grid"><label>Start date<input type="date" value={form.start_date} onChange={(event) => setForm({ ...form, start_date: event.target.value })} /></label><label>End date<input type="date" value={form.end_date} onChange={(event) => setForm({ ...form, end_date: event.target.value })} /></label></div><label>URL<input type="url" value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} /></label><label>Summary<textarea value={form.summary} onChange={(event) => setForm({ ...form, summary: event.target.value })} /></label><div className="actions"><button disabled={busy}>Save project</button>{selected && <button type="button" className="danger" disabled={busy} onClick={() => { onArchive(selected.id); onSelect(null) }}>Archive</button>}</div></form></div>
-}
-
-function SkillEditor({ rows, selectedId, busy, onSelect, onSave, onArchive }: { rows: Skill[]; selectedId: string | null; busy: boolean; onSelect: (id: string | null) => void; onSave: SaveHandler; onArchive: (id: string) => void }) {
-  const selected = rows.find((row) => row.id === selectedId)
-  const [form, setForm] = useState(emptySkill)
-  useEffect(() => setForm(selected ? { name: selected.name, category: selected.category, aliases: selected.aliases.join(', ') } : emptySkill), [selected])
-  return <div className="workspace"><RecordList title="Skills" rows={rows} selectedId={selectedId} onSelect={onSelect} render={(row: Skill) => row.name} /><form className="editor-card" onSubmit={(event) => { event.preventDefault(); onSave(selectedId, { name: form.name, category: form.category, aliases: form.aliases.split(',').map((value) => value.trim()).filter(Boolean) }) }}><h2>{selected ? 'Edit skill' : 'New skill'}</h2><label>Name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Category<input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label><label>Aliases, separated by commas<input value={form.aliases} onChange={(event) => setForm({ ...form, aliases: event.target.value })} placeholder="Postgres, PostgreSQL" /></label><div className="actions"><button disabled={busy}>Save skill</button>{selected && <button type="button" className="danger" disabled={busy} onClick={() => { onArchive(selected.id); onSelect(null) }}>Archive</button>}</div></form></div>
 }

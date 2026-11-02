@@ -25,6 +25,8 @@ Supporting source files can now be explicitly uploaded to saved evidence. Upload
 
 Historical source links now handle archived, missing, and uncached evidence without presenting a new-record form. The source lookup is read-only, clearly separates current library content from saved snapshot content, and offers retry, library refresh, and Archive navigation. Browser coverage includes lookup/refresh failures and a source restored outside the current view. No schema or evidence-policy change in this increment.
 
+Experience/project/skill forms now select successfully created records and retain selection and input after failed saves/archives. Pending library writes lock their fields, record list, sidebar navigation, and search. The editors live in `frontend/src/CareerEditors.tsx`; a dedicated Chromium test covers all three. Regression tests also cover repeated skill alias saves and transactional rollback on skill-name conflicts. There is no new schema or verification-policy change; cross-page autosave/unsaved-navigation warnings remain outside this increment.
+
 ## Next acceptance checks
 
 1. Exercise Intake and the evidence workflow with a real, user-reviewed resume. DOCX and UTF-8 text are supported; PDF input currently requires pasted text.
