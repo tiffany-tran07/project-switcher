@@ -7,6 +7,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -272,9 +273,30 @@ class EvidenceItem(RecordMixin, Base):
     metrics: Mapped[list["Metric"]] = relationship(
         back_populates="evidence", cascade="all, delete-orphan"
     )
+    attachments: Mapped[list["Attachment"]] = relationship(
+        back_populates="evidence", order_by="Attachment.created_at"
+    )
     bullet_variants: Mapped[list["BulletVariant"]] = relationship(
         back_populates="evidence", cascade="all, delete-orphan"
     )
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+    __table_args__ = (
+        UniqueConstraint("evidence_id", "checksum"),
+        CheckConstraint("size > 0 AND size <= 1048576", name="attachment_size"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    evidence_id: Mapped[str] = mapped_column(ForeignKey("evidence_items.id", ondelete="RESTRICT"))
+    relative_path: Mapped[str] = mapped_column(String(1000), unique=True)
+    original_name: Mapped[str] = mapped_column(String(255))
+    media_type: Mapped[str] = mapped_column(String(80), default="text/plain")
+    checksum: Mapped[str] = mapped_column(String(64))
+    size: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    evidence: Mapped[EvidenceItem] = relationship(back_populates="attachments")
 
 
 class Metric(Base):

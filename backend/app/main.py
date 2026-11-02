@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.applications import router as applications_router
 from app.ats import router as ats_router
+from app.attachments import router as attachments_router
 from app.backups import router as backups_router
 from app.config import settings
 from app.dashboard import router as dashboard_router
@@ -38,6 +39,7 @@ app.include_router(jobs_router)
 app.include_router(resumes_router)
 app.include_router(exports_router)
 app.include_router(ats_router)
+app.include_router(attachments_router)
 app.include_router(applications_router)
 app.include_router(backups_router)
 app.include_router(dashboard_router)

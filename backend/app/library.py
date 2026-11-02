@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.models import (
+    Attachment,
     BulletVariant,
     EvidenceItem,
     Experience,
@@ -20,6 +21,7 @@ from app.models import (
     utc_now,
 )
 from app.schemas import (
+    AttachmentOut,
     BulletData,
     BulletOut,
     BulletPatch,
@@ -555,6 +557,10 @@ def export_library(response: Response, session: DB = Depends(get_session)) -> di
         ],
         "skills": [
             skill_out(row).model_dump(mode="json") for row in session.scalars(select(Skill))
+        ],
+        "attachments": [
+            AttachmentOut.model_validate(row).model_dump(mode="json")
+            for row in session.scalars(select(Attachment))
         ],
         "evidence": [
             evidence_out(row).model_dump(mode="json")

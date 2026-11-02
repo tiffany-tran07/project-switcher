@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.attachments import read_attachment
 from app.library import get_session
 from app.models import (
     EvidenceItem,
@@ -66,6 +67,16 @@ def evidence_snapshot(item: EvidenceItem) -> dict[str, object]:
             for metric in item.metrics
         ],
         "skills": [skill.name for skill in item.skills if skill.archived_at is None],
+        "attachments": [
+            {
+                "id": source.id,
+                "original_name": source.original_name,
+                "checksum": source.checksum,
+                "size": source.size,
+                "media_type": source.media_type,
+            }
+            for source in item.attachments
+        ],
     }
 
 
@@ -232,6 +243,7 @@ def validate_draft(
                 selectinload(EvidenceItem.experience),
                 selectinload(EvidenceItem.project).selectinload(Project.experience),
                 selectinload(EvidenceItem.metrics),
+                selectinload(EvidenceItem.attachments),
                 selectinload(EvidenceItem.skills),
             )
             .where(EvidenceItem.id == evidence_id)
@@ -240,6 +252,15 @@ def validate_draft(
             issue("unavailable_evidence", "Source is missing, archived, or no longer verified.")
             continue
         assert item is not None
+        try:
+            for source in item.attachments:
+                read_attachment(source)
+        except HTTPException:
+            issue(
+                "unavailable_evidence",
+                "An attached source file is missing or damaged. Repair it before drafting.",
+            )
+            continue
         if heading == "Projects" and not item.project:
             issue("section_context", "Project bullets must link to a project.")
         if heading == "Experience" and not (

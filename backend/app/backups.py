@@ -93,8 +93,20 @@ def build_backup(session: Session, temporary: Path) -> Path:
         exports = snapshot.execute(
             "SELECT relative_path, checksum FROM export_files ORDER BY relative_path"
         ).fetchall()
+        sources = snapshot.execute(
+            "SELECT relative_path, checksum, size FROM attachments"
+        ).fetchall()
+    registered_sources = {relative: (checksum, size) for relative, checksum, size in sources}
+    for relative, (_, size) in registered_sources.items():
+        if safe_asset_path(relative, "attachments").stat().st_size != size:
+            raise HTTPException(
+                409, "Source file size failed; repair the original file before backup"
+            )
     assets: list[tuple[str, Path, str | None]] = [("database.sqlite3", database, None)]
-    assets.extend((name, path, None) for name, path in attachment_paths())
+    assets.extend(
+        (name, path, registered_sources[name][0] if name in registered_sources else None)
+        for name, path in attachment_paths()
+    )
     for relative, checksum in exports:
         assets.append((relative, safe_asset_path(relative, "exports"), checksum))
     if len(assets) > MAX_BACKUP_FILES:
@@ -126,7 +138,7 @@ def build_backup(session: Session, temporary: Path) -> Path:
             checksum = digest.hexdigest()
             if expected_checksum is not None and checksum != expected_checksum:
                 raise HTTPException(
-                    409, "Export checksum failed; repair the original export file before backup"
+                    409, "Registered asset checksum failed; repair the original file before backup"
                 )
             files.append({"path": relative, "size": size, "sha256": checksum})
         manifest = json.dumps(

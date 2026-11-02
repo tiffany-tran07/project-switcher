@@ -23,6 +23,8 @@ export type Evidence = {
   state: 'draft' | 'verified' | 'rejected'; verified_at: string | null; archived_at: string | null
   skill_ids: string[]; metrics: Metric[]; bullet_variants: Bullet[]
 }
+export type SourceAttachment = { id: string; evidence_id: string; original_name: string; media_type: string; checksum: string; size: number; created_at: string }
+export type SourceAttachmentRef = Pick<SourceAttachment, 'id' | 'original_name' | 'media_type' | 'checksum' | 'size'>
 export type SearchResult = { type: 'experience' | 'project' | 'skill' | 'evidence'; id: string; title: string }
 export type Requirement = { id?: string; text: string; supporting_span?: string | null; normalized_term: string; kind: 'skill' | 'tool' | 'responsibility' | 'experience' | 'education' | 'certification'; priority: 'required' | 'preferred' | 'unclear'; confirmed: boolean }
 export type AnalysisOutcome = { requested_method: 'deterministic' | 'ollama'; method_used: 'deterministic' | 'ollama' | 'preserved'; fallback: boolean; note: string }
@@ -50,7 +52,7 @@ export type AtsReport = {
 }
 export type ExportFile = { id: string; version_id: string; format: 'docx' | 'pdf'; checksum: string; extracted_text: string; page_count: number | null; created_at: string }
 export type Resume = { id: string; job_id: string; name: string; status: string; created_at: string }
-export type ResumeBullet = { id: string; evidence_id: string; text: string; position: number; evidence_snapshot: { claim: string; source_note: string; metrics: { name: string; value: string; unit: string }[]; experience: { organization: string; title: string; start_date?: string | null; end_date?: string | null; location?: string } | null; project: { name: string; start_date?: string | null; end_date?: string | null; url?: string } | null } }
+export type ResumeBullet = { id: string; evidence_id: string; text: string; position: number; evidence_snapshot: { claim: string; source_note: string; attachments?: SourceAttachmentRef[]; metrics: { name: string; value: string; unit: string }[]; experience: { organization: string; title: string; start_date?: string | null; end_date?: string | null; location?: string } | null; project: { name: string; start_date?: string | null; end_date?: string | null; url?: string } | null } }
 export type ResumeVersion = { id: string; resume_id: string; version_number: number; content: { profile: Partial<Profile>; sections: { heading: string; evidence_ids: string[] }[] }; template: string; approved_at: string | null; created_at: string; bullets: ResumeBullet[] }
 export type RequirementMatch = { requirement: { id: string; text: string; kind: string; priority: string; confirmed: boolean }; status: 'direct' | 'related' | 'unsupported'; matches: { evidence_id: string; evidence_text: string; state: string; status: 'direct' | 'related'; reason: string }[] }
 
@@ -85,6 +87,15 @@ export async function previewResume(file: File, signal?: AbortSignal): Promise<R
   if (file.size > 5 * 1024 * 1024) throw new Error('Resume file exceeds the 5 MB limit')
   return api<ResumeIntakePreview>(`/resume-intake/preview?filename=${encodeURIComponent(file.name)}`, {
     method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file, signal,
+  })
+}
+
+export async function uploadSource(evidenceId: string, file: File): Promise<SourceAttachment> {
+  if (!/\.txt$/i.test(file.name)) throw new Error('Choose a UTF-8 .txt source file. PDF and image attachments are not available yet.')
+  if (file.size === 0) throw new Error('Source file is empty')
+  if (file.size > 1024 * 1024) throw new Error('Source file exceeds the 1 MB limit')
+  return api<SourceAttachment>(`/evidence/${encodeURIComponent(evidenceId)}/attachments?filename=${encodeURIComponent(file.name)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file,
   })
 }
 

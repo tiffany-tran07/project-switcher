@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api, save, type Bullet, type Evidence, type Experience, type Metric, type Project, type Skill } from './api'
+import EvidenceAttachments from './EvidenceAttachments'
 import { evidenceForm, hasEvidenceEdits } from './evidenceEditing'
 
 const emptyMetric = { name: '', value: '', unit: '', context: '', source_note: '' }
@@ -10,21 +11,23 @@ type Props = {
   run: (action: () => Promise<unknown>, message: string) => Promise<boolean>
 }
 
-export default function EvidenceEditor({ rows, experiences, projects, skills, selectedId, busy, onSelect, run }: Props) {
+export default function EvidenceEditor({ rows, experiences, projects, skills, selectedId, busy: saving, onSelect, run }: Props) {
   const selected = rows.find((row) => row.id === selectedId)
   const [form, setForm] = useState(() => evidenceForm(selected))
   const [metricForm, setMetricForm] = useState(emptyMetric)
   const [bulletForm, setBulletForm] = useState(emptyBullet)
   const [editingMetric, setEditingMetric] = useState<string | null>(null)
   const [editingBullet, setEditingBullet] = useState<string | null>(null)
+  const [pendingAttachment, setPendingAttachment] = useState(false)
+  const busy = saving || pendingAttachment
   const dirty = hasEvidenceEdits(form, selected)
   const pendingMetric = editingMetric !== null || Object.values(metricForm).some(Boolean)
   const pendingBullet = editingBullet !== null || Boolean(bulletForm.text || bulletForm.tone || bulletForm.approved)
-  const pending = dirty || pendingMetric || pendingBullet
+  const pending = dirty || pendingMetric || pendingBullet || pendingAttachment
 
   useEffect(() => {
     setForm(evidenceForm(selected)); setMetricForm(emptyMetric); setBulletForm(emptyBullet)
-    setEditingMetric(null); setEditingBullet(null)
+    setEditingMetric(null); setEditingBullet(null); setPendingAttachment(false)
   }, [selected])
 
   function selectRecord(id: string | null) {
@@ -125,9 +128,11 @@ export default function EvidenceEditor({ rows, experiences, projects, skills, se
         </div>
         {dirty && <p className="hint" role="status">Unsaved evidence changes. Save or reset them before verification or editing subrecords.</p>}
         {(pendingMetric || pendingBullet) && <p className="hint">Save or clear the metric/bullet form before saving or verifying evidence.</p>}
+        {pendingAttachment && <p className="hint">Attach or clear the selected source file before editing or verifying evidence.</p>}
         <p className="hint">Verification applies only to the saved claim. Editing a claim, its context, or a metric returns it to draft.</p>
       </form>
       {selected && <>
+        <EvidenceAttachments key={selected.id} evidenceId={selected.id} blocked={saving || dirty || pendingMetric || pendingBullet} onPendingChange={setPendingAttachment} run={run} />
         <form className="editor-card" onSubmit={(event) => { void saveMetric(event) }}><h2>Metrics</h2>
           {selected.metrics.map((metric) => <button type="button" className="subrecord" disabled={busy || dirty || pendingBullet} key={metric.id} onClick={() => chooseMetric(metric)}>{metric.name}: {metric.value} {metric.unit}</button>)}
           <fieldset className="evidence-fields" disabled={busy || dirty || pendingBullet}>

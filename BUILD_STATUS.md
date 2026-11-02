@@ -7,7 +7,7 @@
 | Milestone | Implemented core | Remaining validation / limitations |
 | --- | --- | --- |
 | 1 — Foundation | Local React/FastAPI startup, SQLite migrations, lint/type/test runners | Browser tests start a fresh isolated installation; normal use remains localhost-only. |
-| 2 — Evidence library | Profile, roles, projects, skills/aliases, evidence, metrics, variants, archive/recovery UI, search, JSON export | Supporting-document upload UI is not implemented. Claims still require manual truth/source review. |
+| 2 — Evidence library | Profile, roles, projects, skills/aliases, evidence, metrics, variants, local text-source attachments, archive/recovery UI, search, JSON export | Attachments are UTF-8 .txt only (1 MB), append-only, and currently require macOS/Linux file operations; PDF/images, replacement, and deletion are not implemented. Claims still require manual truth/source review. |
 | 3 — Jobs and matching | Pasted jobs, editable/confirmed requirements, deterministic and optional local extraction, source-linked matches and gaps | Local-model behavior is tested with fixtures/local HTTP servers, not a real installed model. Related matches are not proof. |
 | 4 — Resume drafting | Verified-only selection, sections/order, conservative wording, source validation, immutable snapshots/history | No broad AI paraphrasing. Working selections are tab-memory only; reload clears them. |
 | 5 — Export and ATS readiness | DOCX and optional LibreOffice PDF export, checksums, actual-file text extraction, keyword/support gaps, PDF page targets | **Real LibreOffice conversion and visual inspection are still pending on this machine.** The optional real-conversion test is skipped while LibreOffice is absent. |
@@ -20,6 +20,8 @@
 Working resume selections, section order, and wording survive page navigation and switching between resumes in the same open tab. They are kept in React memory only—not localStorage, sessionStorage, the database, or backups. Source state is not cached as verification: saving a version still rechecks current evidence. An unavailable/rejected source does not erase wording or become usable merely because a working selection was restored.
 
 The Archive view now supports searching and restoring career records, with dependency guidance and retry-safe errors. Recovery preserves the record's saved state; it does not verify claims or alter historical snapshots/exports.
+
+Supporting source files can now be explicitly uploaded to saved evidence. Uploads remain local, clear verification and bullet approvals, and preserve selected files after failed requests. New snapshots capture immutable file references; downloads, new snapshot validation, backup, and clean-directory restore check file integrity. This is separate from transient Intake previews. **Existing installations need `alembic upgrade head` before using the new registry.** Migration/schema checks used a disposable database; existing user data was not migrated during this increment.
 
 ## Next acceptance checks
 

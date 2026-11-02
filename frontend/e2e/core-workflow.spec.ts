@@ -160,6 +160,30 @@ test('reviewed resume intake → verified source → approved export → tracked
   await expect(page.getByRole('heading', { name: 'Edit evidence', exact: true })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Claim', exact: true })).toHaveValue(claim)
 
+  const sourceFiles = page.getByRole('region', { name: 'Supporting source files', exact: true })
+  const proofBytes = Buffer.from('Fictional benchmark: latency reduced by 30% using Python.\n')
+  await sourceFiles.getByLabel('Supporting text file', { exact: true }).setInputFiles({ name: 'benchmark.txt', mimeType: 'text/plain', buffer: proofBytes })
+  await expect(page.getByRole('button', { name: 'Verify', exact: true })).toBeDisabled()
+  await expect(page.getByRole('textbox', { name: 'Claim', exact: true })).toBeDisabled()
+  await page.route(`${api}/evidence/${imported[0].id}/attachments?filename=benchmark.txt`, (route) => route.fulfill({
+    status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Source write failed; retry safely' }),
+  }), { times: 1 })
+  await sourceFiles.getByRole('button', { name: 'Attach source file', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Source write failed')
+  await expect(sourceFiles.getByText('Selected file: benchmark.txt', { exact: true })).toBeVisible()
+  await sourceFiles.getByRole('button', { name: 'Attach source file', exact: true }).click()
+  await expect(page.getByRole('status')).toHaveText('Source attached. Review all sources and verify the evidence again.')
+  await expect(sourceFiles.getByLabel('Supporting text file', { exact: true })).toHaveValue('')
+  const afterSource = await (await page.request.get(`${api}/evidence/${imported[0].id}`)).json()
+  expect(afterSource.state).toBe('draft')
+  expect(afterSource.bullet_variants[0].approved_at).toBeNull()
+  const proofDownloadEvent = page.waitForEvent('download')
+  await sourceFiles.getByRole('link', { name: 'benchmark.txt', exact: true }).click()
+  const proofDownload = await proofDownloadEvent
+  expect(await readFile((await proofDownload.path())!)).toEqual(proofBytes)
+  await page.getByRole('button', { name: 'Verify', exact: true }).click()
+  await expect(page.getByRole('status')).toHaveText('Evidence verified.')
+
   await navigate(page, 'Jobs')
   await page.getByLabel('Company', { exact: true }).fill('Fixture Employer')
   await page.getByLabel('Role title', { exact: true }).fill('Fixture role')
@@ -227,6 +251,7 @@ test('reviewed resume intake → verified source → approved export → tracked
   await page.getByRole('textbox', { name: 'Bullet wording', exact: true }).fill(bullet)
   await page.getByRole('button', { name: 'Approve snapshot', exact: true }).click()
   await expect(page.getByLabel('Resume version').locator('option:checked')).toHaveText('Version 1 · approved')
+  await expect(page.getByRole('link', { name: 'benchmark.txt', exact: true })).toBeVisible()
   const preview = page.getByRole('article', { name: 'Resume preview version 1' })
   await expect(preview).toContainText('Browser Fixture')
   await expect(preview).toContainText(bullet)

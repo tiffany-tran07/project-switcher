@@ -458,6 +458,17 @@ class BulletOut(Out):
     approved_at: datetime | None
 
 
+class AttachmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    evidence_id: str
+    original_name: str
+    media_type: str
+    checksum: str
+    size: int
+    created_at: datetime
+
+
 class EvidenceOut(Out):
     id: str
     claim: str

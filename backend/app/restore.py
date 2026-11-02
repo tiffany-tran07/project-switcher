@@ -20,6 +20,7 @@ from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Literal
+from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZIP_STORED, BadZipFile, ZipFile
 
 from alembic.config import Config
@@ -150,6 +151,37 @@ def validate_database(path: Path, manifest: BackupManifest) -> None:
                 "Application links do not point to approved versions for the same job"
             )
         files = {entry.path: entry for entry in manifest.files}
+        sources: dict[str, tuple[str, dict[str, object]]] = {}
+        for id, evidence_id, relative, name, media_type, checksum, size in database.execute(
+            "SELECT id, evidence_id, relative_path, original_name, media_type, checksum, size "
+            "FROM attachments"
+        ):
+            archive_name(relative)
+            try:
+                valid_id = str(UUID(id)) == id
+            except ValueError:
+                valid_id = False
+            if (
+                not valid_id
+                or relative != f"attachments/{id}.txt"
+                or media_type != "text/plain"
+                or relative not in files
+                or files[relative].sha256 != checksum
+                or files[relative].size != size
+            ):
+                raise RestoreError(
+                    "Registered source is missing or does not match its path, size, or checksum"
+                )
+            sources[id] = (
+                evidence_id,
+                {
+                    "id": id,
+                    "original_name": name,
+                    "media_type": media_type,
+                    "checksum": checksum,
+                    "size": size,
+                },
+            )
         registered: set[str] = set()
         for relative, checksum, format in database.execute(
             "SELECT relative_path, checksum, format FROM export_files"
@@ -184,7 +216,7 @@ def validate_database(path: Path, manifest: BackupManifest) -> None:
                 or [row[0] for row in bullets] != expected
             ):
                 raise RestoreError("Resume section and evidence links are inconsistent")
-            for _, text, raw_source in bullets:
+            for evidence_id, text, raw_source in bullets:
                 source = json.loads(raw_source)
                 if (
                     not isinstance(source, dict)
@@ -197,6 +229,24 @@ def validate_database(path: Path, manifest: BackupManifest) -> None:
                     raise RestoreError(
                         "Resume bullet is not backed by its verified snapshot source"
                     )
+                references = source.get("attachments", [])
+                if not isinstance(references, list):
+                    raise RestoreError("Invalid snapshot attachment references")
+                seen: set[str] = set()
+                for reference in references:
+                    if not isinstance(reference, dict) or not isinstance(reference.get("id"), str):
+                        raise RestoreError("Invalid snapshot attachment reference")
+                    registered_source = sources.get(reference["id"])
+                    if (
+                        registered_source is None
+                        or registered_source[0] != evidence_id
+                        or registered_source[1] != reference
+                        or reference["id"] in seen
+                    ):
+                        raise RestoreError(
+                            "Snapshot attachment does not match its immutable source"
+                        )
+                    seen.add(reference["id"])
 
 
 def unique_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
