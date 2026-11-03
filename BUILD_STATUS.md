@@ -29,6 +29,8 @@ Experience/project/skill forms now select successfully created records and retai
 
 Resume source choices now use API-owned eligibility, shared with final draft validation: verified flags alone do not bypass archived linked context or missing/damaged source files. The picker fails closed during checks/errors, offers explicit refresh/review, and preserves existing working wording/selections. Checks are point-in-time rather than continuous monitoring; saving still rechecks current source, section, and wording rules. No schema change, automatic verification, or historical snapshot mutation is introduced.
 
+The contact profile editor preserves raw multiline link input (including Enter/blank lines), normalizing it only for save. Contact fields lock during writes; failed saves retain the raw draft. Browser coverage checks typed multi-link input, pending/failure recovery, and immutable saved contact details after later profile edits. No schema or backend policy change; profile edits still need saving before page navigation.
+
 ## Next acceptance checks
 
 1. Exercise Intake and the evidence workflow with a real, user-reviewed resume. DOCX and UTF-8 text are supported; PDF input currently requires pasted text.

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import ResumeWorkspace from './ResumeWorkspace'
 import EvidenceEditor from './EvidenceEditor'
+import ProfileEditor from './ProfileEditor'
 import { ExperienceEditor, ProjectEditor, SkillEditor } from './CareerEditors'
 import ArchiveWorkspace from './ArchiveWorkspace'
 import ApplicationsWorkspace from './ApplicationsWorkspace'
@@ -195,10 +196,4 @@ function JobDescriptionEditor({ job, onSave }: { job: Job; onSave: (changes: { c
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
   return <details><summary>Original job description and posting details</summary><form className="description-form" onSubmit={(event) => { event.preventDefault(); setError(''); setSaved(false); onSave(form).then(() => setSaved(true)).catch((cause) => setError(String(cause))) }}><div className="form-grid"><label>Company<input value={form.company} onChange={(event) => setForm({ ...form, company: event.target.value })} /></label><label>Role title<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label></div><label>Posting URL<input type="url" value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} /></label><div><strong>Original description (preserved)</strong><p className="job-description">{job.raw_description}</p></div><p className="hint">To change the posting text, save a new job. You can edit extracted requirements below.</p><button>Save posting</button>{error && <span role="alert">{error}</span>}{saved && <span role="status">Posting saved.</span>}</form></details>
-}
-
-function ProfileEditor({ profile, busy, onSave }: { profile: Profile; busy: boolean; onSave: (data: Profile) => void }) {
-  const [form, setForm] = useState(profile)
-  useEffect(() => setForm(profile), [profile])
-  return <div className="editor-only"><form className="editor-card" onSubmit={(event) => { event.preventDefault(); onSave(form) }}><h2>Contact profile</h2><div className="form-grid"><label>Name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label><label>Phone<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label>Location<input value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} /></label></div><label>Links, one per line<textarea value={form.links.join('\n')} onChange={(event) => setForm({ ...form, links: event.target.value.split('\n').filter(Boolean) })} /></label><button disabled={busy}>Save profile</button></form></div>
 }

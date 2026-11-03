@@ -30,8 +30,44 @@ test('reviewed resume intake → verified source → approved export → tracked
   await navigate(page, 'Profile')
   await page.getByLabel('Name', { exact: true }).fill('Browser Fixture')
   await page.getByLabel('Email', { exact: true }).fill('fixture@example.test')
+  const profileLinks = ['https://portfolio.example.test/work?tag=C%2B%2B#overview', 'https://code.example.test/fixture/project']
+  const links = page.getByRole('textbox', { name: 'Links, one per line', exact: true })
+  await links.fill(profileLinks[0])
+  await links.press('Enter')
+  await expect(links).toHaveValue(`${profileLinks[0]}\n`)
+  await links.pressSequentially(profileLinks[1])
+  await links.press('Enter')
+  await links.press('Enter')
+  const rawLinks = `${profileLinks.join('\n')}\n\n`
+  await expect(links).toHaveValue(rawLinks)
+  const previousProfile = await (await page.request.get(`${api}/profile`)).json()
+  let releaseProfileWrite = () => {}
+  let profileWriteStarted = () => {}
+  const profileGate = new Promise<void>((resolve) => { releaseProfileWrite = resolve })
+  const profilePending = new Promise<void>((resolve) => { profileWriteStarted = resolve })
+  await page.route(`${api}/profile`, async (route) => {
+    if (route.request().method() !== 'PUT') return route.fallback()
+    profileWriteStarted()
+    await profileGate
+    await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Profile save failed; retry safely' }) })
+  })
+  await page.getByRole('button', { name: 'Save profile', exact: true }).click()
+  await profilePending
+  try {
+    await expect(links).toBeDisabled()
+    await expect(page.getByLabel('Name', { exact: true })).toBeDisabled()
+    await expect(page.getByLabel('Email', { exact: true })).toBeDisabled()
+    await expect(page.getByRole('navigation').getByRole('button', { name: 'Jobs', exact: true })).toBeDisabled()
+  } finally { releaseProfileWrite() }
+  await expect(page.getByRole('alert')).toContainText('Profile save failed')
+  await expect(links).toHaveValue(rawLinks)
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Browser Fixture')
+  expect(await (await page.request.get(`${api}/profile`)).json()).toEqual(previousProfile)
+  await page.unroute(`${api}/profile`)
   await page.getByRole('button', { name: 'Save profile', exact: true }).click()
   await expect(page.getByRole('status')).toHaveText('Profile saved.')
+  await expect(links).toHaveValue(profileLinks.join('\n'))
+  expect((await (await page.request.get(`${api}/profile`)).json()).links).toEqual(profileLinks)
 
   await navigate(page, 'Intake')
   const source = `Browser Fixture\nEngineer, Fictional Systems\n${claim}\n`
@@ -407,6 +443,16 @@ test('reviewed resume intake → verified source → approved export → tracked
   await navigate(page, 'Resumes')
   await expect(page.getByRole('checkbox', { name: claim, exact: true })).not.toBeChecked()
   await expect(page.getByRole('article', { name: 'Resume preview version 1' })).toContainText(bullet)
+  await navigate(page, 'Profile')
+  await page.getByLabel('Name', { exact: true }).fill('Changed browser fixture')
+  await page.getByRole('textbox', { name: 'Links, one per line', exact: true }).fill('https://changed.example.test/work')
+  await page.getByRole('button', { name: 'Save profile', exact: true }).click()
+  await expect(page.getByRole('status')).toHaveText('Profile saved.')
+  expect(await (await page.request.get(`${api}/resume-versions/${versions[0].id}`)).json()).toEqual(versions[0])
+  await navigate(page, 'Resumes')
+  await expect(page.getByRole('article', { name: 'Resume preview version 1' })).toContainText('Browser Fixture')
+  await expect(page.getByRole('article', { name: 'Resume preview version 1' })).not.toContainText('Changed browser fixture')
+  await expect(page.getByRole('article', { name: 'Resume preview version 1' })).toContainText(profileLinks[0])
   expect(errors).toEqual([])
   expect(blockedRequests).toEqual([])
 })
