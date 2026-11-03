@@ -7,7 +7,7 @@
 | Milestone | Implemented core | Remaining validation / limitations |
 | --- | --- | --- |
 | 1 — Foundation | Local React/FastAPI startup, SQLite migrations, lint/type/test runners | Browser tests start a fresh isolated installation; normal use remains localhost-only. |
-| 2 — Evidence library | Profile, roles, projects, skills/aliases, evidence, metrics, variants, local text-source attachments, archive/recovery UI, search, JSON export | Attachments are UTF-8 .txt only (1 MB), append-only, and currently require macOS/Linux file operations; PDF/images, replacement, and deletion are not implemented. Claims still require manual truth/source review. |
+| 2 — Evidence library | Profile, roles, projects, skills/aliases, evidence, metrics, variants, PDF/DOCX/text Intake previews, local text-source attachments, archive/recovery UI, search, JSON export | Persistent supporting attachments (separate from Intake) remain UTF-8 .txt only (1 MB), append-only, and currently require macOS/Linux file operations. Scanned-PDF OCR and attachment PDF/images, replacement, and deletion are not implemented. Claims still require manual truth/source review. |
 | 3 — Jobs and matching | Pasted jobs, editable/confirmed requirements, deterministic and optional local extraction, source-linked matches and gaps | Local-model behavior is tested with fixtures/local HTTP servers, not a real installed model. Related matches are not proof. |
 | 4 — Resume drafting | Verified-only selection, sections/order, conservative wording, source validation, immutable snapshots/history | No broad AI paraphrasing. Working selections are tab-memory only; reload clears them. |
 | 5 — Export and ATS readiness | DOCX and optional LibreOffice PDF export, checksums, actual-file text extraction, keyword/support gaps, PDF page targets | LibreOffice 26.8.2.2 is installed; real conversion, API download/ATS, and fictional 1-/3-page PDF visual checks are covered. Real-user document acceptance and native Word inspection remain pending. |
@@ -31,9 +31,11 @@ Resume source choices now use API-owned eligibility, shared with final draft val
 
 The contact profile editor preserves raw multiline link input (including Enter/blank lines), normalizing it only for save. Contact fields lock during writes; failed saves retain the raw draft. Browser coverage checks typed multi-link input, pending/failure recovery, and immutable saved contact details after later profile edits. No schema or backend policy change; profile edits still need saving before page navigation.
 
+Text-based PDF Intake now uses a bounded isolated-process reader, reading-order warnings, and OCR-required handling for no-text/scanned documents. Partially empty text layers warn rather than silently claiming a complete import. Drag/drop and file selection work for PDF/DOCX/text, and failed previews preserve prior reviewed work. Saving remains an explicit exact-excerpt, draft-only action; no uploaded resume is retained or automatically verified. There is no schema change; older environments must update backend requirements for the PDF parser minimum version.
+
 ## Next acceptance checks
 
-1. Exercise Intake and the evidence workflow with a real, user-reviewed resume. DOCX and UTF-8 text are supported; PDF input currently requires pasted text.
+1. Exercise Intake and the evidence workflow with a real, user-reviewed resume. Text-based PDF, DOCX, and UTF-8 text are supported through file selection or drop; scanned/image-only PDF content requires local OCR or pasted reviewed text.
 2. Review real-user DOCX/PDF outputs and page targets; synthetic LibreOffice conversion and rendered-PDF visual checks now pass on this machine. See `ACCEPTANCE_RESULTS.md` for scope and local samples. Native Word behavior and real-document layouts are not yet accepted.
 3. Optionally evaluate an installed, appropriately licensed Ollama model against real job descriptions. Core features do not depend on it, and no cloud AI is required.
 4. Collect usability issues and actual matching misses before moving to Milestone 7.

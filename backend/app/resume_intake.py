@@ -21,6 +21,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.library import commit, evidence_out, get_session, validate_context
 from app.models import EvidenceItem
+from app.pdf_intake import preview_pdf
 from app.schemas import EvidenceOut
 
 router = APIRouter(prefix="/api/v1/resume-intake", tags=["resume intake"])
@@ -180,6 +181,10 @@ def preview_resume(data: bytes, filename: str) -> IntakePreview:
     try:
         if format == ".txt":
             text = checked_text(data.decode("utf-8-sig"))
+        elif format == ".pdf":
+            preview = preview_pdf(data)
+            text = checked_text(preview.text)
+            warnings.extend(preview.warnings)
         elif format == ".docx":
             validate_package(data)
             document = Document(BytesIO(data))
@@ -210,14 +215,12 @@ def preview_resume(data: bytes, filename: str) -> IntakePreview:
                     "Tables detected: check cell order, merged cells, and duplicated text manually."
                 )
         else:
-            raise HTTPException(
-                422, "Choose a .docx or UTF-8 .txt file; PDF intake is not available yet"
-            )
+            raise HTTPException(422, "Choose a .pdf, .docx, or UTF-8 .txt file")
     except UnicodeDecodeError as exc:
         raise HTTPException(422, "Text files must use UTF-8 encoding") from exc
     except (BadZipFile, KeyError, ValueError, XMLSyntaxError, RuntimeError, zlib.error) as exc:
         raise HTTPException(
-            422, "Could not read the resume as a standard DOCX or UTF-8 text file"
+            422, "Could not read the resume as a standard PDF, DOCX, or UTF-8 text file"
         ) from exc
     return IntakePreview(filename=filename, format=format.lstrip("."), text=text, warnings=warnings)
 
@@ -234,10 +237,14 @@ async def preview_upload(
         or any(unicodedata.category(char) == "Cc" for char in filename)
     ):
         raise HTTPException(422, "Use a filename, not a filesystem path")
-    if PurePosixPath(filename).suffix.casefold() not in {".docx", ".txt"}:
-        raise HTTPException(
-            422, "Choose a .docx or UTF-8 .txt file; PDF intake is not available yet"
-        )
+    if PurePosixPath(filename).suffix.casefold() not in {".pdf", ".docx", ".txt"}:
+        raise HTTPException(422, "Choose a .pdf, .docx, or UTF-8 .txt file")
+    if (
+        PurePosixPath(filename).suffix.casefold() == ".pdf"
+        and request.headers.get("content-type", "").split(";")[0].strip().lower()
+        != "application/octet-stream"
+    ):
+        raise HTTPException(415, "Send the raw PDF file as application/octet-stream")
     chunks = bytearray()
     async for chunk in request.stream():
         if len(chunks) + len(chunk) > MAX_UPLOAD_BYTES:

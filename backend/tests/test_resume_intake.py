@@ -206,7 +206,10 @@ def test_intake_rejects_unsupported_or_invalid_files(
     intake_client: TestClient, filename: str, content: bytes
 ) -> None:
     response = intake_client.post(
-        "/api/v1/resume-intake/preview", params={"filename": filename}, content=content
+        "/api/v1/resume-intake/preview",
+        params={"filename": filename},
+        content=content,
+        headers={"Content-Type": "application/octet-stream"},
     )
     assert response.status_code == 422
 

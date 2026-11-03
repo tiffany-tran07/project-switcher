@@ -65,9 +65,19 @@ export default function ResumeIntake({ experiences = [], projects = [], onDraftS
 
   return <div className="editor-stack intake-workspace">
     <section className="editor-card"><h2>Preview an existing resume</h2>
-      <p>Choose a DOCX or UTF-8 text file, or paste text below. PDF intake is not available yet; copy its text into the editor instead.</p>
+      <p>Drop or choose a PDF, DOCX, or UTF-8 text file, then preview its text. You can also paste text below. PDF intake reads text layers only; scanned/image-only PDFs require local OCR first.</p>
       <p className="hint">File previews are processed by your configured backend (localhost by default). No AI is called, files are not saved, and no career records are created or verified by file preview.</p>
-      <label>Resume file (.docx or .txt, maximum 5 MB)<input ref={fileInput} type="file" accept=".docx,.txt" disabled={busy} onChange={(event) => { setFile(event.target.files?.[0] ?? null); setError('') }} /></label>
+      <div className="intake-dropzone" role="group" aria-label="Resume drop zone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
+        event.preventDefault()
+        if (busy) return
+        if (event.dataTransfer.files.length !== 1) { setError('Drop one PDF, DOCX, or TXT file at a time.'); return }
+        setFile(event.dataTransfer.files[0]); setError('')
+        if (fileInput.current) fileInput.current.value = ''
+      }}>
+        <label>Resume file (.pdf, .docx, or .txt, maximum 5 MB)<input ref={fileInput} type="file" accept=".pdf,.docx,.txt" disabled={busy} onChange={(event) => { setFile(event.target.files?.[0] ?? null); setError('') }} /></label>
+        <p className="hint">Drop one file here, or use the file chooser. PDFs: up to 20 pages; no OCR or automatic verification.</p>
+        {file && <p>Selected file: {file.name}</p>}
+      </div>
       <div className="actions"><button type="button" disabled={busy || !file} onClick={() => { void preview() }}>{busy ? 'Reading resume…' : 'Preview file text'}</button><button type="button" className="secondary" disabled={busy} onClick={clear}>Clear preview</button></div>
       {error && <p className="message error" role="alert">{error}</p>}
       {warnings.length > 0 && <ul className="intake-warnings">{warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>}
@@ -75,7 +85,7 @@ export default function ResumeIntake({ experiences = [], projects = [], onDraftS
     <section className="editor-card"><h2>Review or paste resume text</h2>
       {source && <p>Preview source: {source}</p>}
       <label>Resume text<textarea ref={textInput} className="intake-text" maxLength={100000} disabled={busy} value={text} onChange={(event) => { setText(event.target.value); setClaim(''); setSaved(null) }} placeholder="Paste your resume here, or preview a file above." /></label>
-      <p className="hint">Preview text is temporary and is cleared when you leave this page. Review dates, metrics, symbols, and table reading order; extraction may omit text boxes, headers, or images.</p>
+      <p className="hint">Preview text is temporary and is cleared when you leave this page. Compare with the original: review dates, metrics, symbols, columns, and table reading order. Extraction may omit text boxes, headers, images, or scanned pages.</p>
       <div className="actions"><button type="button" className="secondary" disabled={busy || !text.trim()} onClick={selectExcerpt}>Use highlighted text as a claim</button></div>
       <h3>Save one reviewed accomplishment</h3>
       <p className="hint">Highlight an accomplishment in the text above, then choose its experience or project. The saved claim is the exact selected excerpt, without rewriting.</p>

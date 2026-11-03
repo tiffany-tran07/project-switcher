@@ -9,11 +9,13 @@ describe('resume intake preview', () => {
   it('explains preview-only behavior, supported formats, and manual verification', () => {
     const html = renderToStaticMarkup(<ResumeIntake />)
     expect(html).toContain('Preview an existing resume')
-    expect(html).toContain('accept=".docx,.txt"')
+    expect(html).toContain('accept=".pdf,.docx,.txt"')
     expect(html).toContain('No AI is called')
     expect(html).toContain('files are not saved')
     expect(html).toContain('no career records are created or verified')
-    expect(html).toContain('PDF intake is not available yet')
+    expect(html).toContain('scanned/image-only PDFs require local OCR first')
+    expect(html).toContain('Resume drop zone')
+    expect(html).toContain('up to 20 pages')
     expect(html).toContain('An existing resume is a starting point, not independent proof')
     expect(html).toContain('Save as draft evidence')
     expect(html).toContain('Highlight an accomplishment')
@@ -41,10 +43,20 @@ describe('resume intake preview', () => {
   it('rejects unsupported or oversized files before any request', async () => {
     const fetch = vi.fn()
     vi.stubGlobal('fetch', fetch)
-    await expect(previewResume(new File(['pdf'], 'resume.pdf'))).rejects.toThrow('PDF intake')
+    await expect(previewResume(new File(['macro'], 'resume.docm'))).rejects.toThrow('Choose a PDF')
     await expect(previewResume(new File([], 'resume.txt'))).rejects.toThrow('empty')
     await expect(previewResume(new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'resume.docx'))).rejects.toThrow('5 MB')
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('sends PDF bytes unchanged to the same local preview endpoint', async () => {
+    const result = { filename: 'resume.PDF', format: 'pdf', text: 'Built tools', warnings: ['Review reading order'] }
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(result)))
+    vi.stubGlobal('fetch', fetch)
+    const file = new File(['%PDF-fixture'], 'resume.PDF', { type: 'application/pdf' })
+    expect(await previewResume(file)).toEqual(result)
+    expect(fetch.mock.calls[0][1].body).toBe(file)
+    expect(fetch.mock.calls[0][1].headers['Content-Type']).toBe('application/octet-stream')
   })
 
   it('surfaces parse failures rather than treating them as resume text', async () => {

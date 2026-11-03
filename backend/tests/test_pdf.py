@@ -18,6 +18,7 @@ from app.ats import analyze_document, requirement_result
 from app.config import settings
 from app.documents import render_docx
 from app.models import JobRequirement
+from app.resume_intake import preview_resume
 from app.schemas import ResumeVersionOut
 
 pytest_plugins = ("test_library", "test_exports")
@@ -216,6 +217,10 @@ def test_real_libreoffice_acceptance_fixtures(multipage: bool) -> None:
     assert "≤80 ms" in extracted
     assert "−5%" in extracted
     assert "€10,000" in extracted
+    preview = preview_resume(converted, "fictional-resume.pdf")
+    assert preview.format == "pdf"
+    assert pdf.preserves_text(expected, preview.text)
+    assert any("no OCR" in warning for warning in preview.warnings)
 
 
 @pytest.mark.skipif(not pdf.find_libreoffice(), reason="LibreOffice is not installed")

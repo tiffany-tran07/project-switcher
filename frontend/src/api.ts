@@ -87,7 +87,7 @@ export function loadEvidenceSource(id: string): Promise<Evidence> {
 export type ResumeIntakePreview = { filename: string; format: string; text: string; warnings: string[] }
 
 export async function previewResume(file: File, signal?: AbortSignal): Promise<ResumeIntakePreview> {
-  if (!/\.(docx|txt)$/i.test(file.name)) throw new Error('Choose a DOCX or UTF-8 text file. PDF intake is not available yet.')
+  if (!/\.(pdf|docx|txt)$/i.test(file.name)) throw new Error('Choose a PDF, DOCX, or UTF-8 text file.')
   if (file.size === 0) throw new Error('Resume file is empty')
   if (file.size > 5 * 1024 * 1024) throw new Error('Resume file exceeds the 5 MB limit')
   return api<ResumeIntakePreview>(`/resume-intake/preview?filename=${encodeURIComponent(file.name)}`, {

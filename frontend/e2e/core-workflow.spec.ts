@@ -6,6 +6,26 @@ const api = 'http://127.0.0.1:8876/api/v1'
 const claim = 'I reduced latency by 30% using Python'
 const bullet = 'Reduced latency by 30% using Python'
 
+function textPdf(pages: string[]): Buffer {
+  // Small ASCII-only PDF fixtures; no external libraries or converter dependency.
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    `<< /Type /Pages /Kids [${pages.map((_, index) => `${4 + index * 2} 0 R`).join(' ')}] /Count ${pages.length} >>`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ]
+  for (const [index, text] of pages.entries()) {
+    const stream = `BT /F1 12 Tf 50 740 Td 16 TL\n${text.split('\n').map((line) => `(${line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')}) Tj T*`).join('\n')}\nET`
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${5 + index * 2} 0 R >>`)
+    objects.push(`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`)
+  }
+  let source = '%PDF-1.4\n'
+  const offsets = [0]
+  objects.forEach((object, index) => { offsets.push(Buffer.byteLength(source)); source += `${index + 1} 0 obj\n${object}\nendobj\n` })
+  const xref = Buffer.byteLength(source)
+  source += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
+  return Buffer.from(source, 'ascii')
+}
+
 async function navigate(page: Page, section: string) {
   await page.getByRole('navigation', { name: 'Main navigation' })
     .getByRole('button', { name: section, exact: true }).click()
@@ -594,4 +614,62 @@ test('resume source availability uses API checks and preserves wording through b
   expect(versions).toHaveLength(1)
   expect(versions[0].bullets[0].text).toBe(wording)
   expect((await (await page.request.get(`${api}/evidence/${source.id}`)).json()).verified_at).toBe(verified.verified_at)
+})
+
+test('PDF drop intake previews locally and saves only a reviewed unverified excerpt', async ({ page }) => {
+  const blocked: string[] = []
+  const allowed = new Set(['http://127.0.0.1:5174', 'http://127.0.0.1:8876'])
+  await page.route('**/*', (route) => {
+    if (allowed.has(new URL(route.request().url()).origin)) return route.continue()
+    blocked.push(route.request().url()); return route.abort()
+  })
+  const project = await (await page.request.post(`${api}/projects`, { data: { name: 'PDF intake fixture project' } })).json()
+  const before = await (await page.request.get(`${api}/evidence`)).json()
+  const pdfClaim = 'Built PDF intake tools using Python'
+  const bytes = textPdf([`Fictional PDF Candidate\n${pdfClaim}`, 'Reviewed fixture notes'])
+  let previews = 0
+  await page.route(`${api}/resume-intake/preview*`, (route) => { previews++; return route.continue() })
+  await page.goto('/')
+  await navigate(page, 'Intake')
+  const transfer = await page.evaluateHandle((base64) => {
+    const data = new DataTransfer()
+    data.items.add(new File([Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))], 'fictional-resume.pdf', { type: 'application/pdf' }))
+    return data
+  }, bytes.toString('base64'))
+  await page.getByRole('group', { name: 'Resume drop zone', exact: true }).dispatchEvent('drop', { dataTransfer: transfer })
+  await transfer.dispose()
+  await expect(page.getByText('Selected file: fictional-resume.pdf', { exact: true })).toBeVisible()
+  expect(previews).toBe(0)
+  await page.getByRole('button', { name: 'Preview file text', exact: true }).click()
+  const text = page.getByRole('textbox', { name: 'Resume text', exact: true })
+  await expect(text).toHaveValue(new RegExp(pdfClaim))
+  await expect(page.getByText('PDF text layer only; no OCR is performed.', { exact: false })).toBeVisible()
+  expect(await (await page.request.get(`${api}/evidence`)).json()).toHaveLength(before.length)
+  await text.evaluate((element, claim) => {
+    const input = element as HTMLTextAreaElement
+    const start = input.value.indexOf(claim)
+    input.focus(); input.setSelectionRange(start, start + claim.length)
+  }, pdfClaim)
+  await page.getByRole('button', { name: 'Use highlighted text as a claim', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Source experience or project', exact: true }).selectOption(`project:${project.id}`)
+  await page.getByRole('textbox', { name: 'Supporting source notes (optional)', exact: true }).fill('Review against fixture work logs')
+  const reviewedText = await text.inputValue()
+  await page.getByLabel('Resume file', { exact: false }).setInputFiles({ name: 'image-only.pdf', mimeType: 'application/pdf', buffer: textPdf(['']) })
+  await page.getByRole('button', { name: 'Preview file text', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('OCR is required')
+  await expect(text).toHaveValue(reviewedText)
+  await expect(page.getByRole('textbox', { name: 'Selected claim', exact: true })).toHaveValue(pdfClaim)
+  await expect(page.getByText('Preview source: fictional-resume.pdf', { exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Supporting source notes (optional)', exact: true })).toHaveValue('Review against fixture work logs')
+  expect(previews).toBe(2)
+  await page.getByRole('button', { name: 'Save as draft evidence', exact: true }).click()
+  await expect(page.getByText('Saved as draft evidence—not verified.', { exact: false })).toBeVisible()
+  const all = await (await page.request.get(`${api}/evidence`)).json()
+  expect(all).toHaveLength(before.length + 1)
+  const saved = all.find((row: { claim: string }) => row.claim === pdfClaim)
+  expect(saved.state).toBe('draft')
+  expect(saved.verified_at).toBeNull()
+  expect(saved.source_note).toContain('fictional-resume.pdf')
+  expect(saved.source_note).not.toContain('Fictional PDF Candidate')
+  expect(blocked).toEqual([])
 })
