@@ -1,12 +1,14 @@
 # Resume Tailor
 
-A local-first resume tailoring app. The career evidence library, job matching, and an initial evidence-backed resume snapshot workflow are available. See [BUILD_GUIDE.md](BUILD_GUIDE.md) for the plan and [BUILD_STATUS.md](BUILD_STATUS.md) for the current phase and remaining acceptance checks.
+A local-first resume tailoring app. The career evidence library, job matching, and an initial evidence-backed resume snapshot workflow are available. See [BUILD_GUIDE.md](BUILD_GUIDE.md) for the plan, [BUILD_STATUS.md](BUILD_STATUS.md) for the current phase, and [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md) for local real-export checks and remaining acceptance work.
 
 ## Requirements
 
 - Python 3.12 or 3.13 (use 3.12 for the documented setup; the system's 3.15 is ahead of some dependency support)
 - Node.js 20.19+ or 22.12+ (Node 24 also works)
 - npm
+
+For optional local PDF export on macOS, install LibreOffice with `HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install --cask libreoffice` (internet needed for the software download). The first variable prevents Homebrew's automatic package cleanup. No resume data needs uploading. LibreOffice is installed and real conversion has been exercised on the current development machine; other installations still need their own converter.
 
 ## Local setup
 

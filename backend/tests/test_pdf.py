@@ -1,9 +1,11 @@
 import subprocess
+from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import pytest
+from acceptance_documents import acceptance_version
 from docx import Document
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -197,6 +199,52 @@ def test_real_libreoffice_conversion(snapshot: dict[str, Any]) -> None:
     assert converted.startswith(b"%PDF-")
     assert pages >= 1
     assert pdf.preserves_text(expected, extracted)
+
+
+@pytest.mark.skipif(not pdf.find_libreoffice(), reason="LibreOffice is not installed")
+@pytest.mark.parametrize("multipage", [False, True], ids=["symbols-and-context", "pagination"])
+def test_real_libreoffice_acceptance_fixtures(multipage: bool) -> None:
+    content, expected = render_docx(acceptance_version(multipage))
+    converted, extracted, pages = pdf.convert_pdf(content, expected)
+    assert converted.startswith(b"%PDF-")
+    assert pages >= (2 if multipage else 1)
+    assert pdf.preserves_text(expected, extracted)
+    assert "2020-01-01" in extracted
+    assert "2023-06-30" in extracted
+    assert "C%2B%2B?tag=A+B#Overview" in extracted
+    assert "≥30%" in extracted
+    assert "≤80 ms" in extracted
+    assert "−5%" in extracted
+    assert "€10,000" in extracted
+
+
+@pytest.mark.skipif(not pdf.find_libreoffice(), reason="LibreOffice is not installed")
+def test_real_pdf_export_download_and_ats(
+    export_client: TestClient, snapshot: dict[str, Any]
+) -> None:
+    client = export_client
+    version = snapshot["approved"]
+    response = client.post(
+        f"/api/v1/resume-versions/{version['id']}/export", json={"format": "pdf"}
+    )
+    assert response.status_code == 201
+    artifact = response.json()
+    downloaded = client.get(f"/api/v1/exports/{artifact['id']}/download")
+    assert downloaded.status_code == 200
+    assert downloaded.headers["content-type"] == "application/pdf"
+    assert sha256(downloaded.content).hexdigest() == artifact["checksum"]
+    report = client.post(
+        f"/api/v1/resume-versions/{version['id']}/ats",
+        json={"export_id": artifact["id"], "page_target": 1},
+    )
+    assert report.status_code == 200
+    result = report.json()
+    assert result["page_count"] == artifact["page_count"] == 1
+    assert "Improved Python reports by 30% with Postgres" in result["extracted_text"]
+    checks = {row["name"]: row["status"] for row in result["formatting"]}
+    assert checks["text_order"] == "passed"
+    assert checks["page_target"] == "passed"
+    assert client.get(f"/api/v1/resume-versions/{version['id']}").json() == version
 
 
 def test_pdf_api_stores_extraction_pages_and_downloads(
