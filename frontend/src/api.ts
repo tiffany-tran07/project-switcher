@@ -31,6 +31,7 @@ export type AnalysisOutcome = { requested_method: 'deterministic' | 'ollama'; me
 export type LocalAIConfig = { endpoint: string | null; model: string; allowed: boolean; message: string }
 export type LocalAICheck = { runtime_available: boolean; model_available: boolean | null; message: string }
 export type Job = { id: string; company: string; title: string; url: string; raw_description: string; source: string; created_at: string; requirements: Requirement[]; analysis?: AnalysisOutcome | null }
+export type ResumeEvidenceStatus = { evidence_id: string; eligible: boolean; problem: string | null }
 export type DraftValidation = { valid: boolean; issues: { evidence_id: string; position: number; code: 'duplicate' | 'unavailable_evidence' | 'section_context' | 'unsafe_wording'; message: string }[] }
 export type DashboardData = {
   today_utc: string

@@ -27,6 +27,8 @@ Historical source links now handle archived, missing, and uncached evidence with
 
 Experience/project/skill forms now select successfully created records and retain selection and input after failed saves/archives. Pending library writes lock their fields, record list, sidebar navigation, and search. The editors live in `frontend/src/CareerEditors.tsx`; a dedicated Chromium test covers all three. Regression tests also cover repeated skill alias saves and transactional rollback on skill-name conflicts. There is no new schema or verification-policy change; cross-page autosave/unsaved-navigation warnings remain outside this increment.
 
+Resume source choices now use API-owned eligibility, shared with final draft validation: verified flags alone do not bypass archived linked context or missing/damaged source files. The picker fails closed during checks/errors, offers explicit refresh/review, and preserves existing working wording/selections. Checks are point-in-time rather than continuous monitoring; saving still rechecks current source, section, and wording rules. No schema change, automatic verification, or historical snapshot mutation is introduced.
+
 ## Next acceptance checks
 
 1. Exercise Intake and the evidence workflow with a real, user-reviewed resume. DOCX and UTF-8 text are supported; PDF input currently requires pasted text.

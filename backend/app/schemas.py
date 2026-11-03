@@ -118,6 +118,12 @@ class DraftRequest(BaseModel):
         return self
 
 
+class ResumeEvidenceStatus(BaseModel):
+    evidence_id: str
+    eligible: bool
+    problem: str | None = None
+
+
 class DraftValidationIssue(BaseModel):
     evidence_id: str
     position: int

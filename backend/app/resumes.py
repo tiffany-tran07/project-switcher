@@ -3,7 +3,7 @@
 import re
 import unicodedata
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -24,6 +24,7 @@ from app.schemas import (
     DraftValidationIssue,
     DraftValidationOut,
     ResumeCreate,
+    ResumeEvidenceStatus,
     ResumeOut,
     ResumeVersionOut,
 )
@@ -137,6 +138,43 @@ def usable(item: EvidenceItem | None) -> bool:
     )
 
 
+def source_problem(item: EvidenceItem | None) -> str | None:
+    """The same source checks power availability previews and final draft validation."""
+    if not usable(item):
+        return "Source is missing, archived, or no longer verified."
+    assert item is not None
+    try:
+        for source in item.attachments:
+            read_attachment(source)
+    except HTTPException:
+        return "An attached source file is missing or damaged. Repair it before drafting."
+    return None
+
+
+@router.get("/resume-evidence", response_model=list[ResumeEvidenceStatus])
+def resume_evidence(
+    response: Response, session: Session = Depends(get_session)
+) -> list[ResumeEvidenceStatus]:
+    response.headers["Cache-Control"] = "no-store"
+    items = session.scalars(
+        select(EvidenceItem)
+        .options(
+            selectinload(EvidenceItem.experience),
+            selectinload(EvidenceItem.project).selectinload(Project.experience),
+            selectinload(EvidenceItem.attachments),
+        )
+        .where(EvidenceItem.archived_at.is_(None))
+        .order_by(EvidenceItem.created_at.desc())
+    )
+    statuses = []
+    for item in items:
+        problem = source_problem(item)
+        statuses.append(
+            ResumeEvidenceStatus(evidence_id=item.id, eligible=problem is None, problem=problem)
+        )
+    return statuses
+
+
 @router.get("/evidence/{evidence_id}/resume-wordings", response_model=list[str])
 def resume_wordings(evidence_id: str, session: Session = Depends(get_session)) -> list[str]:
     item = session.scalar(
@@ -248,19 +286,11 @@ def validate_draft(
             )
             .where(EvidenceItem.id == evidence_id)
         )
-        if not usable(item):
-            issue("unavailable_evidence", "Source is missing, archived, or no longer verified.")
+        problem = source_problem(item)
+        if problem:
+            issue("unavailable_evidence", problem)
             continue
         assert item is not None
-        try:
-            for source in item.attachments:
-                read_attachment(source)
-        except HTTPException:
-            issue(
-                "unavailable_evidence",
-                "An attached source file is missing or damaged. Repair it before drafting.",
-            )
-            continue
         if heading == "Projects" and not item.project:
             issue("section_context", "Project bullets must link to a project.")
         if heading == "Experience" and not (
