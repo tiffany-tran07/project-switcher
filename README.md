@@ -104,6 +104,22 @@ python -m app.restore /path/to/resume-backup.zip --destination /absolute/path/to
 
 Validation checks file paths, entry types, duplicates, limits, hashes, database integrity, foreign keys, resume evidence links, registered source files and their immutable snapshot references, export references, and the exact trusted schema/triggers built from this app's migrations. The backup must have the same schema revision as this app; incompatible revisions are refused rather than silently upgraded. Restore also applies the current source-wording rules to saved bullets; older backups with broader wording edits may be refused even when the schema matches. Keep the original data rather than bypassing these checks. Checksums detect damage, not authorship: use only backups you created and trust. After successful restore, stop the API, set `DATA_DIR` in `.env` to the new absolute directory, clear `DATABASE_URL`, and restart. Review the restored data and exports before retiring the original directory. No browser backup upload or live-database replacement is enabled.
 
+## One-command automated release check
+
+With the documented backend/frontend dependencies, LibreOffice, and Playwright Chromium already installed, run from the repository root:
+
+```bash
+.venv/bin/python scripts/release_check.py
+```
+
+This checks lint/types, fresh migrations/schema, backend/frontend tests, and browser workflows, then runs a connected fictional-data recovery drill: PDF preview → explicit draft excerpts → fixture verification → ordered snapshots → real DOCX/PDF export and ATS → application history → backup CLI validation → clean-directory restore → fresh API process with `DATABASE_URL` cleared. It compares 16 record/report collections, attachment/export SHA-256 hashes, ATS results, and restored integrity triggers. Live library/profile/job edits are deliberately made after approval to test historical snapshots and fixed application links. A second restore into the existing destination must be refused without changing it.
+
+All app settings are overridden before imports, including case-insensitive environment aliases; personal database/model settings are not used. Working installations and caches are disposable. The production `frontend/dist` build and previous browser results are not overwritten. Test ports **8876/5174** must be free: existing servers are never reused or stopped. npm runs offline; missing dependencies/converters/browsers cause failure, not automatic downloads or a misleading success.
+
+A new private, Git-ignored folder under `data/release-checks/` retains `report.json`, per-step logs, synthetic input/output PDFs, DOCX, a fictional backup ZIP, and workflow results. Temporary working databases are removed afterward. Existing output directories are refused; use `--output /new/private/report-folder` to choose another new location. Failed runs keep diagnostic output. Do not treat the fictional backup as a backup of your actual career data.
+
+For the connected drill alone, use `--workflow-only`. Its report explicitly has `scope: workflow-only` and `full_check_passed: false`; it does not count as a complete release check. **Even a full automated pass is not real-user extraction/layout acceptance.**
+
 ## Checks
 
 ```bash

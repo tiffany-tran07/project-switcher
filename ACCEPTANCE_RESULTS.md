@@ -25,6 +25,16 @@ Git-ignored output folder on this machine:
 
 Contains `fictional-symbols.docx/.pdf`, `fictional-pagination.docx/.pdf`, extracted text, page images, and `report.json` with page counts and SHA-256 hashes. Files are deliberately fictional and were generated without opening the active database.
 
+## Repeatable automated release gate
+
+Run `.venv/bin/python scripts/release_check.py` from the repository root. It joins the existing lint/type/schema/unit/browser checks with the real PDF intake/export/ATS and backup/restore workflow. No personal input or manual verification is required: only explicitly fictional fixtures are verified in a brand-new disposable installation.
+
+The recovery comparison covers **16 record/report collections**, both exported file hashes, supporting-file bytes, source links, current versus immutable historical data, and identical ATS reports. It starts a fresh restored API process using `DATA_DIR` and a cleared `DATABASE_URL`, confirms overwrite refusal, and probes sealed-history triggers. Regression coverage includes a sentinel private database plus conflicting uppercase/lowercase inherited settings, failure reporting, occupied ports, output-path refusal, and timeouts.
+
+Latest local full pass: **200 backend tests, 80 frontend tests, 5 browser workflows**, plus lint/type/schema checks and the connected recovery drill. Report: `data/release-checks/run-20261104T202252Z-057lft3c/report.json`.
+
+Reports, logs, and fictional artifacts go into a new private `data/release-checks/run-*/` directory; working databases, isolated build output, and caches are temporary. A `--workflow-only` pass is explicitly marked partial, never a full release gate. A full pass still does not replace user review of a real resume or native Word layout.
+
 ## Still pending
 
 - A real, user-reviewed resume through Intake (now PDF/DOCX/text), manual evidence verification, tailoring, and export. Scanned PDFs still require local OCR first.

@@ -35,6 +35,8 @@ Text-based PDF Intake now uses a bounded isolated-process reader, reading-order 
 
 Intake clear/replacement now asks before discarding pending review work, and identical re-previews keep excerpts/notes intact. A different accepted file clears the role/project selection. Edited extraction text is visibly labeled and saved with an explicit, user-reported provenance note; the reviewed-text hash still describes the submitted text, and every imported claim remains draft. No schema change, whole-resume storage, cross-page autosave, or automatic verification was added.
 
+A one-command automated release gate now combines all existing checks with a connected fictional PDF intake → drafting → DOCX/PDF/ATS → backup → clean restore drill. The restored API runs in a new process with `DATABASE_URL` cleared; record collections, attachment/export checksums, ATS results, and history triggers are compared. Reports/logs and fictional artifacts are retained in new private Git-ignored directories. Active database settings are overridden, normal frontend build/browser artifacts are preserved, and no dependencies are downloaded. Full passes remain automated fixture coverage—not final real-user acceptance. See README for `.venv/bin/python scripts/release_check.py` and the explicitly partial `--workflow-only` mode.
+
 ## Next acceptance checks
 
 1. Exercise Intake and the evidence workflow with a real, user-reviewed resume. Text-based PDF, DOCX, and UTF-8 text are supported through file selection or drop; scanned/image-only PDF content requires local OCR or pasted reviewed text.
