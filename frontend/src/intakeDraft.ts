@@ -8,7 +8,7 @@ export function selectedClaim(text: string, start: number, end: number): string 
   return claim
 }
 
-export function intakeDraftPayload(text: string, claim: string, context: string, name: string, note: string) {
+export function intakeDraftPayload(text: string, claim: string, context: string, name: string, note: string, sourceEdited = false) {
   if (!claim || !text.includes(claim)) throw new Error('Select an exact excerpt from the current resume text.')
   const separator = context.indexOf(':')
   const type = context.slice(0, separator)
@@ -21,5 +21,6 @@ export function intakeDraftPayload(text: string, claim: string, context: string,
     experience_id: type === 'experience' ? id : null,
     project_id: type === 'project' ? id : null,
     source_note: note,
+    ...(sourceEdited ? { source_edited: true } : {}),
   }
 }

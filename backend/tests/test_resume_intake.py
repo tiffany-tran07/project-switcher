@@ -94,6 +94,66 @@ def test_selected_excerpt_saves_only_unverified_draft(intake_client: TestClient)
     )
 
 
+def test_edited_preview_provenance_is_draft_only_and_does_not_truncate_notes(
+    intake_client: TestClient,
+) -> None:
+    from hashlib import sha256
+
+    client = intake_client
+    project = client.post("/api/v1/projects", json={"name": "Edited source fixture"}).json()
+    claim = "Built reviewed PDF tools"
+    text = f"private-fixture@example.test\n{claim}\nUser-reviewed additional text"
+    payload = {
+        "source_text": text,
+        "source_name": "original.pdf",
+        "claim": claim,
+        "project_id": project["id"],
+        "source_note": "n" * 5000,
+        "source_edited": True,
+    }
+    response = client.post("/api/v1/resume-intake/drafts", json=payload)
+    assert response.status_code == 201
+    row = response.json()
+    assert row["state"] == "draft"
+    assert row["verified_at"] is None
+    assert "User-edited preview text; not a verbatim file extraction." in row["source_note"]
+    assert sha256(text.encode()).hexdigest() in row["source_note"]
+    assert row["source_note"].endswith("n" * 5000)
+    assert "private-fixture@example.test" not in row["source_note"]
+    for invalid in ("true", 1, None):
+        assert (
+            client.post(
+                "/api/v1/resume-intake/drafts", json={**payload, "source_edited": invalid}
+            ).status_code
+            == 422
+        )
+    assert (
+        client.post(
+            "/api/v1/resume-intake/drafts", json={**payload, "state": "verified"}
+        ).status_code
+        == 422
+    )
+    assert len(client.get("/api/v1/evidence").json()) == 1
+
+
+def test_unedited_preview_keeps_original_provenance_format(intake_client: TestClient) -> None:
+    client = intake_client
+    project = client.post("/api/v1/projects", json={"name": "Unedited source fixture"}).json()
+    row = client.post(
+        "/api/v1/resume-intake/drafts",
+        json={
+            "source_text": "Built tools",
+            "source_name": "original.pdf",
+            "claim": "Built tools",
+            "project_id": project["id"],
+            "source_edited": False,
+        },
+    ).json()
+    assert row["state"] == "draft"
+    assert "User-edited" not in row["source_note"]
+    assert "original.pdf" in row["source_note"]
+
+
 def test_intake_drafts_require_exact_excerpt_and_active_context(intake_client: TestClient) -> None:
     client = intake_client
     experience = client.post(

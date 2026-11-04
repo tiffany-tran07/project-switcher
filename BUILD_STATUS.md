@@ -33,6 +33,8 @@ The contact profile editor preserves raw multiline link input (including Enter/b
 
 Text-based PDF Intake now uses a bounded isolated-process reader, reading-order warnings, and OCR-required handling for no-text/scanned documents. Partially empty text layers warn rather than silently claiming a complete import. Drag/drop and file selection work for PDF/DOCX/text, and failed previews preserve prior reviewed work. Saving remains an explicit exact-excerpt, draft-only action; no uploaded resume is retained or automatically verified. There is no schema change; older environments must update backend requirements for the PDF parser minimum version.
 
+Intake clear/replacement now asks before discarding pending review work, and identical re-previews keep excerpts/notes intact. A different accepted file clears the role/project selection. Edited extraction text is visibly labeled and saved with an explicit, user-reported provenance note; the reviewed-text hash still describes the submitted text, and every imported claim remains draft. No schema change, whole-resume storage, cross-page autosave, or automatic verification was added.
+
 ## Next acceptance checks
 
 1. Exercise Intake and the evidence workflow with a real, user-reviewed resume. Text-based PDF, DOCX, and UTF-8 text are supported through file selection or drop; scanned/image-only PDF content requires local OCR or pasted reviewed text.

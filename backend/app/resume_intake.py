@@ -14,7 +14,7 @@ from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from lxml.etree import XMLSyntaxError  # type: ignore[import-untyped]
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -47,6 +47,9 @@ class IntakeDraft(BaseModel):
     experience_id: str | None = None
     project_id: str | None = None
     source_note: str = Field(default="", max_length=5000)
+    source_edited: StrictBool = Field(
+        default=False, description="User-reported preview editing; never source verification"
+    )
 
 
 @router.post("/drafts", response_model=EvidenceOut, status_code=201)
@@ -86,6 +89,11 @@ def save_intake_draft(data: IntakeDraft, session: Session = Depends(get_session)
         source_note=(
             f"Resume intake: {name}\nReviewed text SHA-256: {fingerprint}\n"
             "Excerpt only; verify against underlying work before approving.\n"
+            + (
+                "User-edited preview text; not a verbatim file extraction.\n"
+                if data.source_edited
+                else ""
+            )
             + data.source_note.strip()
         ).strip(),
     )

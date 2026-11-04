@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { previewResume, save, type Evidence, type Experience, type Project } from './api'
 import { intakeDraftPayload, selectedClaim } from './intakeDraft'
 import IntakeContextCreator from './IntakeContextCreator'
+import { editedFilePreview, hasPendingIntakeReview, samePreview } from './intakeReview'
 
 export default function ResumeIntake({ experiences = [], projects = [], onDraftSaved, onOpenEvidence, onExperienceCreated, onProjectCreated }: { experiences?: Experience[]; projects?: Project[]; onDraftSaved?: (row: Evidence) => void; onOpenEvidence?: (id: string) => void; onExperienceCreated?: (row: Experience) => void; onProjectCreated?: (row: Project) => void }) {
   const [file, setFile] = useState<File | null>(null)
   const [text, setText] = useState('')
   const [source, setSource] = useState('')
+  const [originalText, setOriginalText] = useState('')
   const [warnings, setWarnings] = useState<string[]>([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -15,6 +17,8 @@ export default function ResumeIntake({ experiences = [], projects = [], onDraftS
   const [creatingContext, setCreatingContext] = useState(false)
   const [sourceNote, setSourceNote] = useState('')
   const [saved, setSaved] = useState<Evidence | null>(null)
+  const review = { text, originalText, source, claim, sourceNote, context, creatingContext }
+  const sourceEdited = editedFilePreview(review)
   const textInput = useRef<HTMLTextAreaElement>(null)
   const activeExperiences = experiences.filter((row) => !row.archived_at)
   const activeProjects = projects.filter((row) => !row.archived_at && (!row.experience_id || activeExperiences.some((experience) => experience.id === row.experience_id)))
@@ -23,7 +27,7 @@ export default function ResumeIntake({ experiences = [], projects = [], onDraftS
   useEffect(() => () => request.current?.abort(), [])
 
   async function preview() {
-    if (!file) return
+    if (!file || busy) return
     request.current?.abort()
     const controller = new AbortController()
     request.current = controller
@@ -31,8 +35,14 @@ export default function ResumeIntake({ experiences = [], projects = [], onDraftS
     try {
       const result = await previewResume(file, controller.signal)
       if (!controller.signal.aborted) {
-        setText(result.text); setSource(result.filename); setWarnings(result.warnings)
-        setClaim(''); setSourceNote(''); setSaved(null)
+        if (samePreview(review, result.text, result.filename)) {
+          setOriginalText(result.text); setWarnings(result.warnings)
+          return
+        }
+        if (hasPendingIntakeReview(review) && !window.confirm('Replace this preview and discard the current excerpt, notes, source selection, or unfinished source-context form? Saved evidence will not change.')) return
+        if (result.filename !== source) setContext('')
+        setText(result.text); setOriginalText(result.text); setSource(result.filename); setWarnings(result.warnings)
+        setClaim(''); setSourceNote(''); setSaved(null); setCreatingContext(false)
       }
     } catch (cause) {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : String(cause))
@@ -40,7 +50,8 @@ export default function ResumeIntake({ experiences = [], projects = [], onDraftS
   }
 
   function clear() {
-    setFile(null); setText(''); setSource(''); setWarnings([]); setError('')
+    if (busy || (hasPendingIntakeReview(review) && !window.confirm('Clear this preview and discard the current excerpt, notes, source selection, or unfinished source-context form? Saved evidence will not change.'))) return
+    setFile(null); setText(''); setOriginalText(''); setSource(''); setWarnings([]); setError('')
     setClaim(''); setContext(''); setSourceNote(''); setSaved(null); setCreatingContext(false)
     if (fileInput.current) fileInput.current.value = ''
   }
@@ -54,9 +65,10 @@ export default function ResumeIntake({ experiences = [], projects = [], onDraftS
   }
 
   async function saveDraft() {
+    if (busy) return
     setBusy(true); setError('')
     try {
-      const payload = intakeDraftPayload(text, claim, context, source, sourceNote)
+      const payload = intakeDraftPayload(text, claim, context, source, sourceNote, sourceEdited)
       const row = await save<Evidence>('/resume-intake/drafts', 'POST', payload)
       onDraftSaved?.(row); setSaved(row); setClaim(''); setSourceNote('')
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
@@ -84,8 +96,9 @@ export default function ResumeIntake({ experiences = [], projects = [], onDraftS
     </section>
     <section className="editor-card"><h2>Review or paste resume text</h2>
       {source && <p>Preview source: {source}</p>}
+      {sourceEdited && <p className="message warning" aria-live="polite">Edited preview: this text differs from the file extraction. Saved excerpts will be labeled as edited reviewed text, not a verbatim extraction.</p>}
       <label>Resume text<textarea ref={textInput} className="intake-text" maxLength={100000} disabled={busy} value={text} onChange={(event) => { setText(event.target.value); setClaim(''); setSaved(null) }} placeholder="Paste your resume here, or preview a file above." /></label>
-      <p className="hint">Preview text is temporary and is cleared when you leave this page. Compare with the original: review dates, metrics, symbols, columns, and table reading order. Extraction may omit text boxes, headers, images, or scanned pages.</p>
+      <p className="hint">Clear/replacement asks before discarding pending review work. Accepting a different file preview resets the source context; choose its role/project again. Preview text is temporary and is cleared when you leave this page. Compare with the original: review dates, metrics, symbols, columns, and table reading order. Extraction may omit text boxes, headers, images, or scanned pages.</p>
       <div className="actions"><button type="button" className="secondary" disabled={busy || !text.trim()} onClick={selectExcerpt}>Use highlighted text as a claim</button></div>
       <h3>Save one reviewed accomplishment</h3>
       <p className="hint">Highlight an accomplishment in the text above, then choose its experience or project. The saved claim is the exact selected excerpt, without rewriting.</p>
