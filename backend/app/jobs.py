@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.job_analysis import extract_with_ollama
+from app.job_import import JobImportError, import_posting
 from app.library import get_session
 from app.models import EvidenceItem, Job, JobRequirement, Project, Skill
 from app.schemas import (
@@ -13,6 +14,7 @@ from app.schemas import (
     JobCreate,
     JobOut,
     JobPatch,
+    JobURLImport,
     RequirementData,
     RequirementList,
     RequirementMatchOut,
@@ -138,6 +140,39 @@ def create_job(data: JobCreate, session: DB = Depends(get_session)) -> JobOut:
     session.commit()
     session.refresh(job)
     return job_out(job)
+
+
+@router.post("/jobs/import-url", response_model=JobOut, status_code=201)
+def import_job_url(data: JobURLImport, session: DB = Depends(get_session)) -> JobOut:
+    try:
+        imported = import_posting(data.url)
+    except JobImportError as error:
+        raise HTTPException(422, str(error)) from error
+    job = Job(
+        title=imported.title,
+        company=imported.company,
+        url=imported.url,
+        raw_description=imported.raw_description,
+        source="url",
+    )
+    job.requirements = [
+        JobRequirement(**item.model_dump(exclude={"id"}), position=index)
+        for index, item in enumerate(extract_requirements(imported.raw_description))
+    ]
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    result = job_out(job)
+    result.analysis = AnalysisOutcome(
+        requested_method="deterministic",
+        method_used="deterministic",
+        fallback=False,
+        note=(
+            "Imported a public posting and extracted requirements without a model call. "
+            "Review the fetched text and role details."
+        ),
+    )
+    return result
 
 
 @router.get("/jobs/{job_id}", response_model=JobOut)

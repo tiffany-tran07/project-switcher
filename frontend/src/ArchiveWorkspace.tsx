@@ -6,7 +6,7 @@ const groups: { kind: ArchiveKind; heading: string; singular: string }[] = [
   { kind: 'experiences', heading: 'Archived experiences', singular: 'experience' },
   { kind: 'projects', heading: 'Archived projects', singular: 'project' },
   { kind: 'skills', heading: 'Archived skills', singular: 'skill' },
-  { kind: 'evidence', heading: 'Archived evidence', singular: 'evidence' },
+  { kind: 'evidence', heading: 'Archived achievements', singular: 'achievement' },
 ]
 
 export default function ArchiveWorkspace({ onRestored }: { onRestored: () => Promise<void> }) {
@@ -43,8 +43,8 @@ export default function ArchiveWorkspace({ onRestored }: { onRestored: () => Pro
 
   return <div className="archive-workspace">
     <section className="editor-card"><h2>Recover career records</h2>
-      <p>Restore archived experiences, projects, skills, and evidence without changing their saved contents or historical resume versions.</p>
-      <p className="hint">Restore linked experiences before projects, and linked projects before evidence. Restoration keeps the saved evidence state; it never verifies draft or rejected claims. Current source eligibility is still checked before drafting.</p>
+      <p>Restore archived experiences, projects, skills, and achievements without changing their saved contents or historical resume versions.</p>
+      <p className="hint">Restore linked experiences before projects, and linked projects before achievements. Restoration keeps the saved achievement state; it never verifies draft or rejected claims. Current source eligibility is still checked before drafting.</p>
       <label>Search archived records<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search titles, claims, skills, or source context" /></label>
       <div className="actions"><button type="button" className="secondary" disabled={busy || loading} onClick={() => { setError(''); setLoading(true); setReload((value) => value + 1) }}>Refresh archive</button></div>
     </section>

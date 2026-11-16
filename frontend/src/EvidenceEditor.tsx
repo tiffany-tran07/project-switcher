@@ -34,7 +34,7 @@ export default function EvidenceEditor({ rows, experiences, projects, skills, se
 
   function selectRecord(id: string | null) {
     if (busy || (id === selectedId && id !== null)) return
-    if (pending && !window.confirm('Discard unsaved evidence, metric, or bullet edits?')) return
+    if (pending && !window.confirm('Discard unsaved achievement, metric, or bullet edits?')) return
     if (id === null) {
       setForm(evidenceForm()); setMetricForm(emptyMetric); setBulletForm(emptyBullet)
       setEditingMetric(null); setEditingBullet(null)
@@ -50,7 +50,7 @@ export default function EvidenceEditor({ rows, experiences, projects, skills, se
       saved = await save<Evidence>(selected ? `/evidence/${selected.id}` : '/evidence', selected ? 'PATCH' : 'POST', {
         ...form, experience_id: form.experience_id || null, project_id: form.project_id || null,
       })
-    }, 'Evidence saved. Review its verification state.')
+    }, 'Achievement saved. Review its verification state.')
     if (success && saved) onSelect(saved.id)
   }
 
@@ -60,7 +60,7 @@ export default function EvidenceEditor({ rows, experiences, projects, skills, se
     const success = await run(() => save(
       editingMetric ? `/metrics/${editingMetric}` : `/evidence/${selected.id}/metrics`,
       editingMetric ? 'PATCH' : 'POST', metricForm,
-    ), 'Metric saved. Evidence returned to draft.')
+    ), 'Metric saved. Achievement returned to draft.')
     if (success) { setMetricForm(emptyMetric); setEditingMetric(null) }
   }
 
@@ -88,7 +88,7 @@ export default function EvidenceEditor({ rows, experiences, projects, skills, se
 
   async function deleteMetric() {
     if (!editingMetric || busy || dirty || pendingBullet || !window.confirm('Delete this metric?')) return
-    if (await run(() => api<void>(`/metrics/${editingMetric}`, { method: 'DELETE' }), 'Metric deleted. Evidence returned to draft.')) {
+    if (await run(() => api<void>(`/metrics/${editingMetric}`, { method: 'DELETE' }), 'Metric deleted. Achievement returned to draft.')) {
       setEditingMetric(null); setMetricForm(emptyMetric)
     }
   }
@@ -102,36 +102,36 @@ export default function EvidenceEditor({ rows, experiences, projects, skills, se
 
   async function archive() {
     if (!selected || busy || pending) return
-    if (await run(() => save(`/evidence/${selected.id}`, 'PATCH', { archived: true }), 'Evidence archived.')) onSelect(null)
+    if (await run(() => save(`/evidence/${selected.id}`, 'PATCH', { archived: true }), 'Achievement archived.')) onSelect(null)
   }
 
   const experienceLabel = (row: Experience) => `${row.title} · ${row.organization}`
   return <div className="workspace">
-    <section className="record-list"><div className="list-heading"><h2>Evidence</h2><button disabled={busy} onClick={() => selectRecord(null)}>+ New</button></div>
-      {rows.length ? rows.map((row) => <button disabled={busy} key={row.id} className={selectedId === row.id ? 'selected' : ''} onClick={() => selectRecord(row.id)}>{row.claim} · {row.state}</button>) : <p className="empty">Nothing here yet. Add your first record.</p>}
+    <section className="record-list"><div className="list-heading"><h2>Achievements</h2><button disabled={busy} onClick={() => selectRecord(null)}>+ New</button></div>
+      {rows.length ? rows.map((row) => <button disabled={busy} key={row.id} className={selectedId === row.id ? 'selected' : ''} onClick={() => selectRecord(row.id)}>{row.claim} · {row.state}</button>) : <p className="empty">Nothing here yet. Add your first achievement.</p>}
     </section>
     <div className="editor-stack">
       {selectedId && !selected ? <EvidenceSourceLookup key={selectedId} evidenceId={selectedId} busy={busy} onRefresh={onRefresh} onOpenArchive={onOpenArchive} /> : <>
       <form className="editor-card" onSubmit={(event) => { void saveEvidence(event) }}>
-        <div className="editor-title"><h2>{selected ? 'Edit evidence' : 'New evidence'}</h2>{selected && <span className={`badge ${selected.state}`}>{selected.state}</span>}</div>
+        <div className="editor-title"><h2>{selected ? 'Edit achievement' : 'New achievement'}</h2>{selected && <span className={`badge ${selected.state}`}>{selected.state}</span>}</div>
         <fieldset className="evidence-fields" disabled={busy}>
           <label>Claim<textarea required value={form.claim} onChange={(event) => setForm({ ...form, claim: event.target.value })} placeholder="What did you do?" /></label>
-          <label>Source note<textarea value={form.source_note} onChange={(event) => setForm({ ...form, source_note: event.target.value })} placeholder="Where can you verify this claim?" /></label>
+          <label>Source note<textarea value={form.source_note} onChange={(event) => setForm({ ...form, source_note: event.target.value })} placeholder="Where can you verify this achievement?" /></label>
           <div className="form-grid"><label>Experience<select value={form.experience_id} onChange={(event) => setForm({ ...form, experience_id: event.target.value })}><option value="">None</option>{experiences.map((row) => <option value={row.id} key={row.id}>{experienceLabel(row)}</option>)}</select></label><label>Project<select value={form.project_id} onChange={(event) => setForm({ ...form, project_id: event.target.value })}><option value="">None</option>{projects.map((row) => <option value={row.id} key={row.id}>{row.name}</option>)}</select></label></div>
           <fieldset><legend>Skills demonstrated</legend><div className="skill-options">{skills.length ? skills.map((skill) => <label key={skill.id}><input type="checkbox" checked={form.skill_ids.includes(skill.id)} onChange={(event) => setForm({ ...form, skill_ids: event.target.checked ? [...form.skill_ids, skill.id] : form.skill_ids.filter((id) => id !== skill.id) })} />{skill.name}</label>) : <span>Add skills in the Skills section to link them here.</span>}</div></fieldset>
         </fieldset>
         <div className="actions">
-          <button disabled={busy || pendingMetric || pendingBullet}>Save evidence</button>
+          <button disabled={busy || pendingMetric || pendingBullet}>Save achievement</button>
           {selected && <>
-            {dirty && <button type="button" className="secondary" disabled={busy} onClick={() => setForm(evidenceForm(selected))}>Reset evidence edits</button>}
-            <button type="button" className="secondary" disabled={busy || pending || !selected.source_note.trim() || selected.state === 'verified'} onClick={() => { if (!pending) void run(() => save(`/evidence/${selected.id}`, 'PATCH', { state: 'verified' }), 'Evidence verified.') }}>Verify</button>
-            <button type="button" className="secondary" disabled={busy || pending} onClick={() => { void run(() => save(`/evidence/${selected.id}`, 'PATCH', { state: 'rejected' }), 'Evidence rejected.') }}>Reject</button>
+            {dirty && <button type="button" className="secondary" disabled={busy} onClick={() => setForm(evidenceForm(selected))}>Reset achievement edits</button>}
+            <button type="button" className="secondary" disabled={busy || pending || !selected.source_note.trim() || selected.state === 'verified'} onClick={() => { if (!pending) void run(() => save(`/evidence/${selected.id}`, 'PATCH', { state: 'verified' }), 'Achievement verified.') }}>Verify</button>
+            <button type="button" className="secondary" disabled={busy || pending} onClick={() => { void run(() => save(`/evidence/${selected.id}`, 'PATCH', { state: 'rejected' }), 'Achievement rejected.') }}>Reject</button>
             <button type="button" className="danger" disabled={busy || pending} onClick={() => { void archive() }}>Archive</button>
           </>}
         </div>
-        {dirty && <p className="hint" role="status">Unsaved evidence changes. Save or reset them before verification or editing subrecords.</p>}
-        {(pendingMetric || pendingBullet) && <p className="hint">Save or clear the metric/bullet form before saving or verifying evidence.</p>}
-        {pendingAttachment && <p className="hint">Attach or clear the selected source file before editing or verifying evidence.</p>}
+        {dirty && <p className="hint" role="status">Unsaved achievement changes. Save or reset them before verification or editing subrecords.</p>}
+        {(pendingMetric || pendingBullet) && <p className="hint">Save or clear the metric/bullet form before saving or verifying this achievement.</p>}
+        {pendingAttachment && <p className="hint">Attach or clear the selected source file before editing or verifying this achievement.</p>}
         <p className="hint">Verification applies only to the saved claim. Editing a claim, its context, or a metric returns it to draft.</p>
       </form>
       {selected && <>
@@ -155,7 +155,7 @@ export default function EvidenceEditor({ rows, experiences, projects, skills, se
             <label>Tone<input value={bulletForm.tone} onChange={(event) => setBulletForm({ ...bulletForm, tone: event.target.value })} placeholder="Concise" /></label>
             <label className="inline-check"><input type="checkbox" checked={bulletForm.approved} disabled={selected.state !== 'verified'} onChange={(event) => setBulletForm({ ...bulletForm, approved: event.target.checked })} />Approve this bullet</label>
           </fieldset>
-          <p className="hint">Approval requires verified evidence. Editing the evidence or metric removes approval.</p>
+          <p className="hint">Approval requires a verified achievement. Editing the achievement or metric removes approval.</p>
           <div className="actions"><button disabled={busy || dirty || pendingMetric || (bulletForm.approved && selected.state !== 'verified')}>{editingBullet ? 'Update bullet' : 'Add bullet'}</button>
             {pendingBullet && <button type="button" className="secondary" disabled={busy} onClick={() => { setEditingBullet(null); setBulletForm(emptyBullet) }}>{editingBullet ? 'Cancel edit' : 'Clear bullet form'}</button>}
             {editingBullet && <button type="button" className="danger" disabled={busy || dirty || pendingMetric} onClick={() => { void deleteBullet() }}>Delete bullet</button>}

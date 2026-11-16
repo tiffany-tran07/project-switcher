@@ -108,8 +108,8 @@ export default function ResumeIntake({ experiences = [], projects = [], onDraftS
       {!creatingContext && <div className="actions"><button type="button" className="secondary" disabled={busy} onClick={() => setCreatingContext(true)}>Create experience or project here</button></div>}
       {creatingContext && <IntakeContextCreator experiences={activeExperiences} disabled={busy} onBusyChange={setBusy} onCancel={() => setCreatingContext(false)} onExperienceCreated={(row) => { onExperienceCreated?.(row); setContext(`experience:${row.id}`); setCreatingContext(false) }} onProjectCreated={(row) => { onProjectCreated?.(row); setContext(`project:${row.id}`); setCreatingContext(false) }} />}
       <label>Supporting source notes (optional)<textarea disabled={busy} maxLength={5000} value={sourceNote} onChange={(event) => setSourceNote(event.target.value)} placeholder="Where can you verify this work? A resume alone is not proof." /></label>
-      <div className="actions"><button type="button" disabled={busy || !claim || !context} onClick={() => { void saveDraft() }}>Save as draft evidence</button></div>
-      {saved && <div className="message success" role="status"><p>Saved as draft evidence—not verified. Add metrics and review supporting sources in Evidence.</p>{onOpenEvidence && <button type="button" className="match-link" onClick={() => onOpenEvidence(saved.id)}>Open saved evidence</button>}</div>}
+      <div className="actions"><button type="button" disabled={busy || !claim || !context} onClick={() => { void saveDraft() }}>Save as draft achievement</button></div>
+      {saved && <div className="message success" role="status"><p>Saved as draft achievement—not verified. Add metrics and review supporting sources in Achievements.</p>{onOpenEvidence && <button type="button" className="match-link" onClick={() => onOpenEvidence(saved.id)}>Open saved achievement</button>}</div>}
       <p className="hint">An existing resume is a starting point, not independent proof of its claims. Nothing in this preview enters an approved resume automatically.</p>
     </section>
   </div>

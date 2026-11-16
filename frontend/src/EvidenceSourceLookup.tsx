@@ -16,9 +16,9 @@ export default function EvidenceSourceLookup({ evidenceId, ...actions }: Actions
 }
 
 export function EvidenceSourceCard({ lookup, busy, onRefresh, onOpenArchive, onRetry }: Actions & { lookup: SourceLookup; onRetry: () => void }) {
-  return <section className="editor-card source-lookup" aria-label="Evidence source lookup">
-    <h2>{lookup.status === 'found' && lookup.source.archived_at ? 'Archived evidence source' : 'Source not in the active library'}</h2>
-    <p>Saved resume snapshots and exports are unchanged. This link never creates a new evidence record or restores a source automatically.</p>
+  return <section className="editor-card source-lookup" aria-label="Achievement source lookup">
+    <h2>{lookup.status === 'found' && lookup.source.archived_at ? 'Archived achievement source' : 'Source not in the active library'}</h2>
+    <p>Saved resume snapshots and exports are unchanged. This link never creates a new achievement or restores a source automatically.</p>
     {lookup.status === 'loading' && <p role="status">Loading the current source record…</p>}
     {lookup.status === 'failed' && <><p role="alert">Could not load this source. It may be missing, or the API may be unavailable. {lookup.message}</p>
       <button type="button" disabled={busy} onClick={onRetry}>Retry source lookup</button></>}

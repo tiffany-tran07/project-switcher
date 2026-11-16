@@ -19,6 +19,9 @@ describe('workspace dashboard', () => {
     expect(html).toContain('No messages are sent automatically.')
     expect(html).toContain('Paste your first job description')
     expect(html).toContain('Counts include all active records')
+    expect(html).toContain('Work on a resume')
+    expect(html).toContain('Explore saved jobs')
+    expect(html).toContain('Your workspace at a glance')
   })
 
   it('distinguishes latest drafts from approved versions and escapes record text', () => {

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import ResumeWorkspace from './ResumeWorkspace'
+import WorkspaceIcon from './WorkspaceIcon'
 import EvidenceEditor from './EvidenceEditor'
 import ProfileEditor from './ProfileEditor'
 import { ExperienceEditor, ProjectEditor, SkillEditor } from './CareerEditors'
@@ -14,6 +15,20 @@ import { updateWorkingDraft, type WorkingDrafts } from './resumeDraft'
 import { api, API_ROOT, save, type Evidence, type Experience, type Job, type Profile, type Project, type Requirement, type RequirementMatch, type SearchResult, type Skill } from './api'
 
 type Section = 'evidence' | 'experiences' | 'projects' | 'skills' | 'profile' | 'jobs' | 'resumes' | 'applications' | 'settings' | 'dashboard' | 'intake' | 'archive'
+const navigation: { label: string; items: Section[] }[] = [
+  { label: 'WORKSPACE', items: ['dashboard', 'intake'] },
+  { label: 'CAREER LIBRARY', items: ['evidence', 'experiences', 'projects', 'skills'] },
+  { label: 'YOUR NEXT CHAPTER', items: ['jobs', 'resumes', 'applications'] },
+  { label: 'MANAGE', items: ['profile', 'archive', 'settings'] },
+]
+const careerPages: Partial<Record<Section, { label: string; title: string; description: string }>> = {
+  evidence: { label: 'Achievements', title: 'Your achievements.', description: 'Capture what you accomplished, the impact you made, and the details that back it up.' },
+  experiences: { label: 'Experiences', title: 'Your work experience.', description: 'Organize your roles, responsibilities, and career history in one place.' },
+  projects: { label: 'Projects', title: 'Your projects.', description: 'Showcase what you built, your contributions, and the results you delivered.' },
+  skills: { label: 'Skills', title: 'Your skills.', description: 'Keep track of your strengths, tools, and the skills demonstrated in your work.' },
+  profile: { label: 'Profile', title: 'Your profile.', description: 'Keep your contact details and professional links ready for every resume.' },
+}
+const sectionLabel = (section: Section) => careerPages[section]?.label ?? section[0].toUpperCase() + section.slice(1)
 const emptyProfile: Profile = { name: '', email: '', phone: '', location: '', links: [] }
 
 export default function App() {
@@ -87,28 +102,29 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell color-study">
       <aside className="sidebar">
-        <div className="brand">Resume Tailor</div>
-        <p>Local workspace</p>
+        <a className="skip-link" href="#workspace-content">Skip to content</a>
+        <div className="brand"><span className="brand-mark" aria-hidden="true">r.</span><span>Resume Tailor<span className="brand-caption">A little more you.</span></span></div>
         <nav aria-label="Main navigation">
-          <span className="nav-heading">CAREER LIBRARY</span>
-          {(['dashboard', 'intake', 'evidence', 'experiences', 'projects', 'skills', 'archive', 'jobs', 'resumes', 'applications', 'profile', 'settings'] as Section[]).map((item) =>
-            <button key={item} disabled={busy} className={section === item ? 'active' : ''} onClick={() => { setSection(item); setSelectedId(null); setError(''); setNotice('') }}>{item[0].toUpperCase() + item.slice(1)}</button>,
-          )}
+          {navigation.map((group) => <div className="nav-group" key={group.label}>
+            <span className="nav-heading">{group.label}</span>
+            {group.items.map((item) => <button key={item} disabled={busy} aria-current={section === item ? 'page' : undefined} className={section === item ? 'active' : ''} onClick={() => { setSection(item); setSelectedId(null); setError(''); setNotice('') }}><WorkspaceIcon name={item} /><span>{sectionLabel(item)}</span>{section === item && <span className="nav-active-dot" aria-hidden="true" />}</button>)}
+          </div>)}
         </nav>
-        <div className="sidebar-footer">Your records stay on this computer.</div>
+        <div className="sidebar-footer"><span className="privacy-dot" /><div><strong>Private by design</strong><span>Your records stay on this computer.</span></div></div>
       </aside>
-      <main>
+      <main id="workspace-content" tabIndex={-1}>
+        <div className="workspace-topbar"><span>My workspace <span aria-hidden="true">/</span> <strong>{sectionLabel(section)}</strong></span><span className="local-indicator"><span className="privacy-dot" /> Local-first workspace</span></div>
         <header className="page-head">
           <span className="eyebrow">{section === 'archive' ? 'CAREER ARCHIVE' : section === 'intake' ? 'RESUME INTAKE' : section === 'dashboard' ? 'LOCAL WORKSPACE' : section === 'settings' ? 'SETTINGS' : section === 'applications' ? 'APPLICATION TRACKER' : section === 'jobs' ? 'JOB WORKSPACE' : section === 'resumes' ? 'RESUME WORKSPACE' : 'CAREER LIBRARY'}</span>
-          <h1>{section === 'archive' ? 'Recover archived work.' : section === 'intake' ? 'Start from your existing resume.' : section === 'dashboard' ? 'Your resume workspace.' : section === 'settings' ? 'Protect your local data.' : section === 'applications' ? 'Track your applications.' : section === 'jobs' ? 'Review job requirements.' : section === 'resumes' ? 'Draft from verified evidence.' : 'Build your evidence base.'}</h1>
-          <p>{section === 'archive' ? 'Restore source records without rewriting past resume snapshots.' : section === 'intake' ? 'Preview its text, then review claims before adding them to your evidence library.' : section === 'dashboard' ? 'Pick up where you left off and see what needs attention.' : section === 'settings' ? 'Create a portable backup of your evidence, resumes, and application history.' : section === 'applications' ? 'Keep your status history and the exact resume snapshot used for each job.' : section === 'jobs' ? 'Paste a posting, review extracted requirements, and see what verified evidence supports them.' : section === 'resumes' ? 'Select, order, and snapshot supported claims for a targeted resume.' : 'Record what you did, where you did it, and the source that supports each claim.'}</p>
+          <h1>{section === 'archive' ? 'Recover archived work.' : section === 'intake' ? 'Start from your existing resume.' : section === 'dashboard' ? 'Your resume workspace.' : section === 'settings' ? 'Protect your local data.' : section === 'applications' ? 'Track your applications.' : section === 'jobs' ? 'Bring your next opportunity.' : section === 'resumes' ? 'Draft from verified evidence.' : careerPages[section]?.title}</h1>
+          <p>{section === 'archive' ? 'Restore source records without rewriting past resume snapshots.' : section === 'intake' ? 'Preview its text, then review claims before adding them to your evidence library.' : section === 'dashboard' ? 'Pick up where you left off and see what needs attention.' : section === 'settings' ? 'Create a portable backup of your evidence, resumes, and application history.' : section === 'applications' ? 'Keep your status history and the exact resume snapshot used for each job.' : section === 'jobs' ? 'Paste a job link. We’ll bring in the details so you can focus on finding your fit.' : section === 'resumes' ? 'Select, order, and snapshot supported claims for a targeted resume.' : careerPages[section]?.description}</p>
         </header>
         {section === 'archive' ? <ArchiveWorkspace onRestored={load} /> : section === 'intake' ? <ResumeIntake experiences={experiences} projects={projects} onExperienceCreated={(row) => setExperiences((current) => [row, ...current.filter((item) => item.id !== row.id)])} onProjectCreated={(row) => setProjects((current) => [row, ...current.filter((item) => item.id !== row.id)])} onDraftSaved={(row) => setEvidence((current) => [row, ...current.filter((item) => item.id !== row.id)])} onOpenEvidence={(id) => { setSelectedId(id); setSection('evidence') }} /> : section === 'dashboard' ? <Dashboard onOpen={(destination, id) => { setSection(destination); setSelectedId(id ?? null); if (destination === 'resumes' && id) setLastResumeId(id) }} /> : section === 'settings' ? <div className="editor-stack"><LocalAISettings /><BackupSettings /></div> : section === 'applications' ? <ApplicationsWorkspace initialApplicationId={selectedId ?? undefined} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : section === 'resumes' ? <ResumeWorkspace initialResumeId={selectedId ?? lastResumeId ?? undefined} workingDrafts={workingResumeDrafts} onWorkingDraftChange={(id, update) => setWorkingResumeDrafts((current) => updateWorkingDraft(current, id, update))} onResumeSelect={(id) => { setLastResumeId(id || null); setSelectedId(id || null) }} evidence={evidence} projects={projects} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : section === 'jobs' ? <JobsWorkspace initialJobId={selectedId ?? undefined} evidence={evidence} onEvidenceSelect={(id) => { setSection('evidence'); setSelectedId(id) }} /> : <>
         <div className="toolbar">
           <form onSubmit={search} className="search-form">
-            <input aria-label="Search library" disabled={busy} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search work, skills, and evidence" />
+            <input aria-label="Search library" disabled={busy} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search work, skills, and achievements" />
             <button type="submit" disabled={busy}>Search</button>
           </form>
           <a className="button secondary" href={`${API_ROOT}/library/export`} download="career-library.json">Export JSON</a>
@@ -130,6 +146,9 @@ export default function App() {
 function JobsWorkspace({ evidence, onEvidenceSelect, initialJobId }: { evidence: Evidence[]; onEvidenceSelect: (id: string) => void; initialJobId?: string }) {
   const [jobs, setJobs] = useState<Job[]>([])
   const [selected, setSelected] = useState<string>(initialJobId ?? '')
+  const [jobUrl, setJobUrl] = useState('')
+  const [manualOpen, setManualOpen] = useState(false)
+  const [importNotice, setImportNotice] = useState('')
   const [company, setCompany] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -140,8 +159,23 @@ function JobsWorkspace({ evidence, onEvidenceSelect, initialJobId }: { evidence:
   const job = jobs.find((item) => item.id === selected)
   async function refresh() { setJobs(await api<Job[]>('/jobs')) }
   useEffect(() => { refresh().catch((cause) => setError(String(cause))) }, [])
+  async function importFromUrl(event: FormEvent) {
+    event.preventDefault()
+    if (busy || !jobUrl.trim()) return
+    if (requirementsDirty && !window.confirm('Discard unsaved requirement edits and import a new job?')) return
+    setBusy(true); setError(''); setImportNotice('')
+    try {
+      const imported = await save<Job>('/jobs/import-url', 'POST', { url: jobUrl.trim() })
+      setJobs((current) => [imported, ...current.filter((item) => item.id !== imported.id)])
+      setSelected(imported.id); setMatches(null); setRequirementsDirty(false); setJobUrl('')
+      setImportNotice('Job imported. Review the fetched description and role details below; some sites omit the company name or include extra page text.')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+      setManualOpen(true)
+    } finally { setBusy(false) }
+  }
   async function create(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError('')
+    event.preventDefault(); setBusy(true); setError(''); setImportNotice('')
     try {
       const created = await save<Job>('/jobs', 'POST', { company, title, raw_description: description })
       const analyzed = await api<Job>(`/jobs/${created.id}/analyze`, { method: 'POST' })
@@ -183,8 +217,16 @@ function JobsWorkspace({ evidence, onEvidenceSelect, initialJobId }: { evidence:
   }
   return <div className="job-workspace">
     {error && <div className="message error" role="alert">{error}</div>}
-    <form className="editor-card job-create" onSubmit={create}><h2>Paste a job description</h2><div className="form-grid"><label>Company<input value={company} onChange={(e) => setCompany(e.target.value)} /></label><label>Role title<input required value={title} onChange={(e) => setTitle(e.target.value)} /></label></div><label>Original description<textarea required minLength={20} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Paste the full job posting…" /></label><button disabled={busy}>{busy ? 'Analyzing…' : 'Save and extract requirements'}</button></form>
-    <div className="workspace"><section className="record-list"><div className="list-heading"><h2>Saved jobs</h2></div>{jobs.length ? jobs.map((item) => <button key={item.id} className={selected === item.id ? 'selected' : ''} disabled={busy} onClick={() => { if (requirementsDirty && !window.confirm('Discard unsaved requirement edits?')) return; setSelected(item.id); setMatches(null); setRequirementsDirty(false) }}>{item.title}{item.company && ` · ${item.company}`}</button>) : <p className="empty">No job descriptions saved yet.</p>}</section>
+    {importNotice && <div className="message success" role="status">{importNotice}</div>}
+    <section className="editor-card job-import-card" aria-labelledby="job-import-title">
+      <div className="job-import-heading"><span className="job-import-icon"><WorkspaceIcon name="jobs" /></span><div><span className="eyebrow">ONE LINK. YOUR NEXT CHAPTER.</span><h2 id="job-import-title">Found a role you love?</h2></div></div>
+      <p className="hint">Drop in a direct link to a public job posting. We’ll fetch the description and suggest requirements for you to review.</p>
+      <form className="job-url-form" onSubmit={(event) => { void importFromUrl(event) }}><label htmlFor="job-posting-url">Job posting URL</label><div><input id="job-posting-url" type="url" required maxLength={1000} disabled={busy} value={jobUrl} onChange={(event) => setJobUrl(event.target.value)} placeholder="https://company.com/careers/your-next-role" /><button type="submit" disabled={busy || !jobUrl.trim()}>{busy ? 'Working…' : 'Import job'}<WorkspaceIcon name="arrow" /></button></div></form>
+      <p className="hint">Fetching contacts the linked website over the internet. Your career library is not sent. Login-only, JavaScript-only, and bot-protected pages may need pasted text.</p>
+    </section>
+    <details className="job-manual-entry" open={manualOpen} onToggle={(event) => setManualOpen(event.currentTarget.open)}><summary>Paste job text instead</summary>
+    <form className="editor-card job-create" onSubmit={create}><h2>Paste a job description</h2><div className="form-grid"><label>Company<input value={company} onChange={(e) => setCompany(e.target.value)} /></label><label>Role title<input required value={title} onChange={(e) => setTitle(e.target.value)} /></label></div><label>Original description<textarea required minLength={20} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Paste the full job posting…" /></label><button disabled={busy}>{busy ? 'Working…' : 'Save and extract requirements'}</button></form></details>
+    <div className="workspace"><section className="record-list"><div className="list-heading"><h2>Saved jobs</h2></div>{jobs.length ? jobs.map((item) => <button key={item.id} className={selected === item.id ? 'selected' : ''} disabled={busy} onClick={() => { if (requirementsDirty && !window.confirm('Discard unsaved requirement edits?')) return; setSelected(item.id); setMatches(null); setRequirementsDirty(false) }}>{item.title}{item.company && ` · ${item.company}`}</button>) : <p className="empty">No jobs saved yet. Import your first posting above.</p>}</section>
       {job ? <section className="editor-stack"><article className="editor-card"><fieldset className="review-fields" disabled={busy}><div className="editor-title"><h2>{job.title}{job.company && ` · ${job.company}`}</h2><div className="actions"><button type="button" className="secondary" onClick={() => { void reanalyze(job.id, 'deterministic') }}>Re-extract</button><button type="button" className="secondary" onClick={() => { void reanalyze(job.id, 'ollama') }}>Try local Ollama</button></div></div><p className="hint">Optional Ollama extraction sends only this job description to the configured local runtime. View its endpoint and model in Settings. Deterministic extraction makes no model call.</p>{job.analysis && <AnalysisNotice outcome={job.analysis} />}<JobDescriptionEditor key={job.id} job={job} onSave={async (changes) => { const updated = await save<Job>(`/jobs/${job.id}`, 'PATCH', changes); setJobs((current) => current.map((item) => item.id === job.id ? { ...updated, requirements: requirementsDirty ? item.requirements : updated.requirements } : item)); setMatches(null) }} /><h3>Extracted requirements <small>· editable and not yet confirmed</small></h3>{job.requirements.map((req, index) => <div className="requirement-edit" key={req.id ?? index}><input aria-label={`Requirement ${index + 1}`} value={req.text} onChange={(e) => { const next = [...job.requirements]; next[index] = { ...req, text: e.target.value, normalized_term: e.target.value.toLocaleLowerCase(), confirmed: false, supporting_span: null }; setRequirementsDirty(true); setJobs((current) => current.map((item) => item.id === job.id ? { ...item, requirements: next } : item)) }} /><select aria-label={`Priority for requirement ${index + 1}`} value={req.priority} onChange={(e) => { const next = [...job.requirements]; next[index] = { ...req, priority: e.target.value as Requirement['priority'] }; setRequirementsDirty(true); setJobs((current) => current.map((item) => item.id === job.id ? { ...item, requirements: next } : item)) }}><option value="unclear">Unclear</option><option value="required">Required</option><option value="preferred">Preferred</option></select><select aria-label={`Kind for requirement ${index + 1}`} value={req.kind} onChange={(e) => { const next = [...job.requirements]; next[index] = { ...req, kind: e.target.value as Requirement['kind'] }; setRequirementsDirty(true); setJobs((current) => current.map((item) => item.id === job.id ? { ...item, requirements: next } : item)) }}><option value="skill">Skill</option><option value="tool">Tool</option><option value="responsibility">Responsibility</option><option value="experience">Experience</option><option value="education">Education</option><option value="certification">Certification</option></select><label className="inline-check"><input type="checkbox" checked={req.confirmed} onChange={(e) => { const next = [...job.requirements]; next[index] = { ...req, confirmed: e.target.checked }; setRequirementsDirty(true); setJobs((current) => current.map((item) => item.id === job.id ? { ...item, requirements: next } : item)) }} />Confirmed</label><button type="button" className="danger" onClick={() => { setRequirementsDirty(true); setJobs((current) => current.map((item) => item.id === job.id ? { ...item, requirements: item.requirements.filter((_, i) => i !== index) } : item)) }}>Remove</button>{req.supporting_span && <small className="citation">From posting: “{req.supporting_span}”</small>}</div>)}<div className="actions"><button onClick={() => confirmRequirements(job.requirements).catch((cause) => setError(String(cause)))}>Save requirement edits</button><button className="secondary" onClick={() => { setRequirementsDirty(true); setJobs((current) => current.map((item) => item.id === job.id ? { ...item, requirements: [...item.requirements, { text: '', normalized_term: '', kind: 'responsibility', priority: 'unclear', confirmed: false }] } : item)) }}>Add requirement</button><button className="secondary" disabled={requirementsDirty} title={requirementsDirty ? 'Save requirement edits first' : undefined} onClick={() => review(job.id)}>Match verified evidence</button>{requirementsDirty && <span role="status">Save requirements before matching.</span>}</div></fieldset></article>
       {matches && <article className="editor-card"><h2>Evidence match review</h2>{matches.map((result) => <div className="match-card" key={result.requirement.id}><div className="editor-title"><strong>{result.requirement.text}{!result.requirement.confirmed && <small className="review-warning"> · unconfirmed</small>}</strong><span className={`match-status ${result.status}`}>{result.status}</span></div>{result.matches.length ? result.matches.map((match) => <div className="evidence-match" key={match.evidence_id}><span>{match.status}</span><p><button type="button" className="match-link" onClick={() => onEvidenceSelect(match.evidence_id)}>{match.evidence_text}</button></p><small>{match.reason} · verified evidence</small></div>) : <p className="gap-note">No verified evidence found. This is an evidence gap, not a claim about your abilities.</p>}</div>)}</article>}
       </section> : <div className="editor-card"><p className="empty">Select a saved job to review requirements and matches.</p><small>{evidence.filter((item) => item.state === 'verified').length} verified evidence items available for matching.</small></div>}</div>

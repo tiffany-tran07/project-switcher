@@ -208,6 +208,11 @@ class ResumeVersionOut(BaseModel):
     bullets: list[ResumeBulletOut]
 
 
+class JobURLImport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    url: str = Field(min_length=1, max_length=1000)
+
+
 class JobCreate(BaseModel):
     company: str = Field(default="", max_length=200)
     title: str = Field(min_length=1, max_length=200)

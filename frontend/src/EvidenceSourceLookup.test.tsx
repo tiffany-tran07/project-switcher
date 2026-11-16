@@ -14,18 +14,18 @@ describe('historical evidence source links', () => {
   it('does not turn an unresolved source ID into a new-record form', () => {
     const html = renderToStaticMarkup(<EvidenceEditor rows={[]} experiences={[]} projects={[]} skills={[]} selectedId="missing" busy={false} onSelect={() => {}} onRefresh={() => {}} onOpenArchive={() => {}} run={async () => false} />)
     expect(html).toContain('Loading the current source record')
-    expect(html).not.toContain('New evidence')
-    expect(html).not.toContain('Save evidence')
+    expect(html).not.toContain('New achievement')
+    expect(html).not.toContain('Save achievement')
     expect(html).not.toContain('<form')
   })
   it('retains an explicit new-record form when the user chooses New', () => {
     const html = renderToStaticMarkup(<EvidenceEditor rows={[]} experiences={[]} projects={[]} skills={[]} selectedId={null} busy={false} onSelect={() => {}} onRefresh={() => {}} onOpenArchive={() => {}} run={async () => false} />)
-    expect(html).toContain('New evidence')
-    expect(html).toContain('Save evidence')
+    expect(html).toContain('New achievement')
+    expect(html).toContain('Save achievement')
   })
   it('shows archived sources read-only and distinguishes current records from snapshots', () => {
     const html = card({ status: 'found', source })
-    expect(html).toContain('Archived evidence source')
+    expect(html).toContain('Archived achievement source')
     expect(html).toContain('not the historical snapshot')
     expect(html).toContain('Current library state: draft')
     expect(html).toContain('Current note')
@@ -38,7 +38,7 @@ describe('historical evidence source links', () => {
   it('explains active but uncached sources without silently enabling editing', () => {
     const html = card({ status: 'found', source: { ...source, archived_at: null } })
     expect(html).toContain('Refresh the career library before editing')
-    expect(html).not.toContain('Archived evidence source')
+    expect(html).not.toContain('Archived achievement source')
     expect(html).not.toContain('<textarea')
   })
   it('keeps errors retryable without claiming that a missing source was archived', () => {
@@ -46,7 +46,7 @@ describe('historical evidence source links', () => {
     expect(html).toContain('role="alert"')
     expect(html).toContain('may be missing')
     expect(html).toContain('Retry source lookup')
-    expect(html).not.toContain('Archived evidence source')
+    expect(html).not.toContain('Archived achievement source')
     expect(card({ status: 'loading' }, true)).toContain('disabled=""')
   })
   it('loads only the requested source through an encoded read-only URL', async () => {
